@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=sqlite:///./data/predictions.db
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - ./.env:/app/.env
+    depends_on:
+      - redis
+    networks:
+      - prediction-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend/src:/app/src
+    depends_on:
+      - backend
+    networks:
+      - prediction-network
+    restart: unless-stopped
+
+  # Redis Cache (optional, for production)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - prediction-network
+    restart: unless-stopped
+
+networks:
+  prediction-network:
+    driver: bridge
+
+volumes:
+  redis_data:

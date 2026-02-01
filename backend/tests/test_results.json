@@ -1,0 +1,501 @@
+{
+  "passed": 95,
+  "failed": 3,
+  "warnings": 1,
+  "tests": [
+    {
+      "name": "AAPL quote retrieval",
+      "passed": true,
+      "details": "Price: $258.28"
+    },
+    {
+      "name": "AAPL price within 52-week range",
+      "passed": true,
+      "details": "Range: $169.21 - $288.62"
+    },
+    {
+      "name": "AAPL sector verification",
+      "passed": true,
+      "details": "Sector: Technology"
+    },
+    {
+      "name": "AAPL cross-source price verification",
+      "passed": true,
+      "details": "yfinance: $258.28, Finviz: $258.28"
+    },
+    {
+      "name": "MSFT quote retrieval",
+      "passed": true,
+      "details": "Price: $433.50"
+    },
+    {
+      "name": "MSFT price within 52-week range",
+      "passed": true,
+      "details": "Range: $344.79 - $555.45"
+    },
+    {
+      "name": "MSFT sector verification",
+      "passed": true,
+      "details": "Sector: Technology"
+    },
+    {
+      "name": "MSFT cross-source price verification",
+      "passed": true,
+      "details": "yfinance: $433.50, Finviz: $433.50"
+    },
+    {
+      "name": "NVDA quote retrieval",
+      "passed": true,
+      "details": "Price: $192.51"
+    },
+    {
+      "name": "NVDA price within 52-week range",
+      "passed": true,
+      "details": "Range: $86.62 - $212.19"
+    },
+    {
+      "name": "NVDA sector verification",
+      "passed": true,
+      "details": "Sector: Technology"
+    },
+    {
+      "name": "NVDA cross-source price verification",
+      "passed": true,
+      "details": "yfinance: $192.51, Finviz: $192.51"
+    },
+    {
+      "name": "TSLA quote retrieval",
+      "passed": true,
+      "details": "Price: $416.56"
+    },
+    {
+      "name": "TSLA price within 52-week range",
+      "passed": true,
+      "details": "Range: $214.25 - $498.83"
+    },
+    {
+      "name": "TSLA sector verification",
+      "passed": true,
+      "details": "Sector: Consumer Cyclical"
+    },
+    {
+      "name": "TSLA cross-source price verification",
+      "passed": true,
+      "details": "yfinance: $416.56, Finviz: $416.56"
+    },
+    {
+      "name": "JPM quote retrieval",
+      "passed": true,
+      "details": "Price: $306.42"
+    },
+    {
+      "name": "JPM price within 52-week range",
+      "passed": true,
+      "details": "Range: $202.16 - $337.25"
+    },
+    {
+      "name": "JPM sector verification",
+      "passed": true,
+      "details": "Sector: Financial Services"
+    },
+    {
+      "name": "JPM cross-source price verification",
+      "passed": true,
+      "details": "yfinance: $306.42, Finviz: $306.42"
+    },
+    {
+      "name": "XOM quote retrieval",
+      "passed": true,
+      "details": "Price: $140.51"
+    },
+    {
+      "name": "XOM price within 52-week range",
+      "passed": true,
+      "details": "Range: $97.80 - $142.34"
+    },
+    {
+      "name": "XOM sector verification",
+      "passed": true,
+      "details": "Sector: Energy"
+    },
+    {
+      "name": "XOM cross-source price verification",
+      "passed": true,
+      "details": "yfinance: $140.51, Finviz: $140.51"
+    },
+    {
+      "name": "Extract 'AAPL' from query",
+      "passed": true,
+      "details": "Query: 'Will AAPL reach $200?...' -> Got: AAPL"
+    },
+    {
+      "name": "Extract 'AAPL' from query",
+      "passed": true,
+      "details": "Query: 'Is Apple stock going up?...' -> Got: AAPL"
+    },
+    {
+      "name": "Extract 'TSLA' from query",
+      "passed": true,
+      "details": "Query: 'Tesla price prediction...' -> Got: TSLA"
+    },
+    {
+      "name": "Extract 'NVDA' from query",
+      "passed": true,
+      "details": "Query: 'What about $NVDA?...' -> Got: NVDA"
+    },
+    {
+      "name": "Extract 'MSFT' from query",
+      "passed": true,
+      "details": "Query: 'Microsoft future outlook...' -> Got: MSFT"
+    },
+    {
+      "name": "Extract 'NVDA' from query",
+      "passed": true,
+      "details": "Query: 'Will nvidia hit $150?...' -> Got: NVDA"
+    },
+    {
+      "name": "Extract 'AMZN' from query",
+      "passed": true,
+      "details": "Query: 'Amazon earnings impact...' -> Got: AMZN"
+    },
+    {
+      "name": "Extract 'META' from query",
+      "passed": true,
+      "details": "Query: 'Meta stock analysis...' -> Got: META"
+    },
+    {
+      "name": "Extract 'META' from query",
+      "passed": true,
+      "details": "Query: 'Facebook price target...' -> Got: META"
+    },
+    {
+      "name": "Extract 'GOOGL' from query",
+      "passed": true,
+      "details": "Query: 'Google stock prediction...' -> Got: GOOGL"
+    },
+    {
+      "name": "Extract 'GOOGL' from query",
+      "passed": true,
+      "details": "Query: 'Alphabet earnings...' -> Got: GOOGL"
+    },
+    {
+      "name": "Extract 'JPM' from query",
+      "passed": true,
+      "details": "Query: 'JP Morgan outlook...' -> Got: JPM"
+    },
+    {
+      "name": "Extract 'BRK.B' from query",
+      "passed": true,
+      "details": "Query: 'Will Berkshire Hathaway go up?...' -> Got: BRK.B"
+    },
+    {
+      "name": "Extract 'NFLX' from query",
+      "passed": true,
+      "details": "Query: 'Netflix subscriber growth impact...' -> Got: NFLX"
+    },
+    {
+      "name": "Extract 'AMD' from query",
+      "passed": false,
+      "details": "Query: 'AMD vs Intel comparison...' -> Got: INTC"
+    },
+    {
+      "name": "Extract 'SPY' from query",
+      "passed": true,
+      "details": "Query: 'S&P 500 prediction...' -> Got: SPY"
+    },
+    {
+      "name": "Extract 'QQQ' from query",
+      "passed": true,
+      "details": "Query: 'Nasdaq outlook...' -> Got: QQQ"
+    },
+    {
+      "name": "Extract 'V' from query",
+      "passed": true,
+      "details": "Query: 'Will V go up?...' -> Got: V"
+    },
+    {
+      "name": "Extract 'COST' from query",
+      "passed": true,
+      "details": "Query: 'Costco earnings...' -> Got: COST"
+    },
+    {
+      "name": "Extract 'HD' from query",
+      "passed": true,
+      "details": "Query: 'Home Depot forecast...' -> Got: HD"
+    },
+    {
+      "name": "Prediction generated for price_target_up",
+      "passed": true,
+      "details": "Probability: 62%, Confidence: ConfidenceLevel.MEDIUM"
+    },
+    {
+      "name": "Probability in valid range",
+      "passed": true,
+      "details": "Value: 0.62"
+    },
+    {
+      "name": "Sufficient data points",
+      "passed": true,
+      "details": "Data points: 255"
+    },
+    {
+      "name": "Reasoning provided",
+      "passed": true,
+      "details": "Summary length: 143 chars"
+    },
+    {
+      "name": "Factors identified",
+      "passed": true,
+      "details": "Bullish: 3, Bearish: 2"
+    },
+    {
+      "name": "Prediction generated for price_target_down",
+      "passed": true,
+      "details": "Probability: 22%, Confidence: ConfidenceLevel.MEDIUM"
+    },
+    {
+      "name": "Probability in valid range",
+      "passed": true,
+      "details": "Value: 0.22"
+    },
+    {
+      "name": "Sufficient data points",
+      "passed": true,
+      "details": "Data points: 263"
+    },
+    {
+      "name": "Reasoning provided",
+      "passed": true,
+      "details": "Summary length: 247 chars"
+    },
+    {
+      "name": "Factors identified",
+      "passed": true,
+      "details": "Bullish: 3, Bearish: 3"
+    },
+    {
+      "name": "Prediction generated for general_outlook",
+      "passed": true,
+      "details": "Probability: 45%, Confidence: ConfidenceLevel.MEDIUM"
+    },
+    {
+      "name": "Probability in valid range",
+      "passed": true,
+      "details": "Value: 0.45"
+    },
+    {
+      "name": "Sufficient data points",
+      "passed": true,
+      "details": "Data points: 231"
+    },
+    {
+      "name": "Reasoning provided",
+      "passed": true,
+      "details": "Summary length: 142 chars"
+    },
+    {
+      "name": "Factors identified",
+      "passed": true,
+      "details": "Bullish: 2, Bearish: 2"
+    },
+    {
+      "name": "Prediction generated for relative_performance",
+      "passed": true,
+      "details": "Probability: 62%, Confidence: ConfidenceLevel.MEDIUM"
+    },
+    {
+      "name": "Probability in valid range",
+      "passed": true,
+      "details": "Value: 0.62"
+    },
+    {
+      "name": "Sufficient data points",
+      "passed": true,
+      "details": "Data points: 166"
+    },
+    {
+      "name": "Reasoning provided",
+      "passed": true,
+      "details": "Summary length: 190 chars"
+    },
+    {
+      "name": "Factors identified",
+      "passed": true,
+      "details": "Bullish: 3, Bearish: 3"
+    },
+    {
+      "name": "Invalid ticker returns None",
+      "passed": true,
+      "details": "Graceful handling of invalid ticker"
+    },
+    {
+      "name": "Empty query handled",
+      "passed": true,
+      "details": "Returns None for empty query"
+    },
+    {
+      "name": "Long query handled",
+      "passed": true,
+      "details": "Extracted: AAPL"
+    },
+    {
+      "name": "Special characters handled",
+      "passed": true,
+      "details": "Extracted: AAPL"
+    },
+    {
+      "name": "No-ticker query handled",
+      "passed": true,
+      "details": "Extracted: None"
+    },
+    {
+      "name": "Sentiment: positive",
+      "passed": true,
+      "details": "Text: 'Stock surges 20% on incredible earnings ...' Score: 0.881"
+    },
+    {
+      "name": "Sentiment: positive",
+      "passed": true,
+      "details": "Text: 'Company beats expectations, raises guida...' Score: 0.529"
+    },
+    {
+      "name": "Sentiment: negative",
+      "passed": true,
+      "details": "Text: 'Shares plummet after disappointing resul...' Score: -0.245"
+    },
+    {
+      "name": "Sentiment: negative",
+      "passed": true,
+      "details": "Text: 'Stock crashes amid fraud allegations...' Score: -0.529"
+    },
+    {
+      "name": "Sentiment: negative",
+      "passed": true,
+      "details": "Text: 'Company files for bankruptcy protection...' Score: -0.529"
+    },
+    {
+      "name": "Sentiment: neutral",
+      "passed": false,
+      "details": "Text: 'Shares traded flat on mixed signals...' Score: 0.145"
+    },
+    {
+      "name": "Sentiment: neutral",
+      "passed": true,
+      "details": "Text: 'Stock unchanged after earnings report...' Score: 0.000"
+    },
+    {
+      "name": "Sentiment: positive",
+      "passed": true,
+      "details": "Text: 'Bullish momentum continues with strong b...' Score: 0.807"
+    },
+    {
+      "name": "Sentiment: negative",
+      "passed": false,
+      "details": "Text: 'Bears take control as selling intensifie...' Score: 0.000"
+    },
+    {
+      "name": "Sentiment: positive",
+      "passed": true,
+      "details": "Text: 'Analysts upgrade stock to buy rating...' Score: 0.659"
+    },
+    {
+      "name": "Sentiment: negative",
+      "passed": true,
+      "details": "Text: 'Analysts downgrade to sell rating...' Score: -0.659"
+    },
+    {
+      "name": "Sentiment: positive",
+      "passed": true,
+      "details": "Text: 'Record revenue and profit announced...' Score: 0.659"
+    },
+    {
+      "name": "Sentiment: negative",
+      "passed": true,
+      "details": "Text: 'Massive layoffs announced, 10000 jobs cu...' Score: -0.612"
+    },
+    {
+      "name": "AAPL RSI valid range",
+      "passed": true,
+      "details": "RSI: 48.82"
+    },
+    {
+      "name": "AAPL RSI cross-validation",
+      "passed": true,
+      "details": "Calculated: 48.8, Finviz: 46.32"
+    },
+    {
+      "name": "AAPL SMAs calculated",
+      "passed": true,
+      "details": "SMA20: $258.27, SMA50: $268.45"
+    },
+    {
+      "name": "MSFT RSI valid range",
+      "passed": true,
+      "details": "RSI: 32.63"
+    },
+    {
+      "name": "MSFT RSI cross-validation",
+      "passed": true,
+      "details": "Calculated: 32.6, Finviz: 33.57"
+    },
+    {
+      "name": "MSFT SMAs calculated",
+      "passed": true,
+      "details": "SMA20: $467.71, SMA50: $477.61"
+    },
+    {
+      "name": "GOOGL RSI valid range",
+      "passed": true,
+      "details": "RSI: 63.93"
+    },
+    {
+      "name": "GOOGL RSI cross-validation",
+      "passed": true,
+      "details": "Calculated: 63.9, Finviz: 66.09"
+    },
+    {
+      "name": "GOOGL SMAs calculated",
+      "passed": true,
+      "details": "SMA20: $327.62, SMA50: $316.90"
+    },
+    {
+      "name": "SEC EDGAR API",
+      "passed": true,
+      "details": "Response time: 0.00s"
+    },
+    {
+      "name": "Finviz API",
+      "passed": true,
+      "details": "Response time: 0.00s"
+    },
+    {
+      "name": "Fear & Greed API",
+      "passed": true,
+      "details": "Response time: 0.00s"
+    },
+    {
+      "name": "VIX API",
+      "passed": true,
+      "details": "Response time: 0.00s"
+    },
+    {
+      "name": "Options API",
+      "passed": true,
+      "details": "Response time: 0.19s"
+    },
+    {
+      "name": "Economic API",
+      "passed": true,
+      "details": "Response time: 0.00s"
+    },
+    {
+      "name": "Sectors API",
+      "passed": true,
+      "details": "Response time: 0.00s"
+    }
+  ],
+  "issues": [],
+  "improvements": [
+    "Improve extraction for query pattern: 'AMD vs Intel comparison'"
+  ]
+}

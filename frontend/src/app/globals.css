@@ -1,0 +1,358 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Professional muted color palette */
+  --foreground-rgb: 30, 41, 59;
+  --background-start-rgb: 248, 250, 252;
+  --background-end-rgb: 241, 245, 249;
+
+  /* Primary - Deep navy */
+  --primary-50: 248, 250, 252;
+  --primary-100: 241, 245, 249;
+  --primary-200: 226, 232, 240;
+  --primary-300: 203, 213, 225;
+  --primary-400: 148, 163, 184;
+  --primary-500: 100, 116, 139;
+  --primary-600: 71, 85, 105;
+  --primary-700: 51, 65, 85;
+  --primary-800: 30, 41, 59;
+  --primary-900: 15, 23, 42;
+
+  /* Accent - Muted teal */
+  --accent-500: 94, 140, 151;
+  --accent-600: 71, 113, 125;
+
+  /* Success - Muted sage green */
+  --success-50: 240, 253, 244;
+  --success-100: 220, 252, 231;
+  --success-500: 74, 124, 89;
+  --success-600: 56, 102, 71;
+  --success-700: 45, 82, 57;
+
+  /* Danger - Muted terracotta */
+  --danger-50: 254, 242, 242;
+  --danger-100: 254, 226, 226;
+  --danger-500: 178, 89, 89;
+  --danger-600: 153, 68, 68;
+  --danger-700: 127, 54, 54;
+
+  /* Warning - Muted amber */
+  --warning-50: 255, 251, 235;
+  --warning-500: 180, 140, 70;
+  --warning-600: 157, 118, 48;
+}
+
+/* Smooth scrolling for the whole page */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-start-rgb));
+  min-height: 100vh;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Scroll offset for anchor links (accounts for sticky header) */
+section[id] {
+  scroll-margin-top: 80px;
+}
+
+/* Custom scrollbar - subtle */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Utility classes */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Muted professional text gradient */
+  .gradient-text {
+    @apply bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 bg-clip-text text-transparent;
+  }
+
+  .gradient-text-accent {
+    @apply bg-gradient-to-r from-slate-600 to-slate-500 bg-clip-text text-transparent;
+  }
+
+  /* Card styles - clean and professional */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-slate-200/60 p-6;
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:border-slate-300/60;
+  }
+
+  /* Glass effect - subtle */
+  .glass {
+    @apply bg-white/90 backdrop-blur-sm border border-slate-200/40;
+  }
+
+  /* Subtle shadows */
+  .shadow-soft {
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05), 0 4px 12px -4px rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-soft-lg {
+    box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 8px 24px -8px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Animation keyframes - subtle */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Animation classes */
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out forwards;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Staggered animation delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* Probability meter - professional */
+.probability-meter {
+  @apply relative h-3 bg-slate-100 rounded-full overflow-hidden;
+}
+
+.probability-fill {
+  @apply absolute left-0 top-0 h-full transition-all duration-700 ease-out rounded-full;
+}
+
+.probability-fill.positive {
+  background: linear-gradient(90deg, #4a7c59, #5e8c64);
+}
+
+.probability-fill.negative {
+  background: linear-gradient(90deg, #b25959, #9f4e4e);
+}
+
+.probability-fill.neutral {
+  background: linear-gradient(90deg, #b48c46, #a07c3d);
+}
+
+/* Loading skeleton - subtle */
+.skeleton {
+  @apply relative overflow-hidden bg-slate-100 rounded;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  100% { transform: translateX(100%); }
+}
+
+/* Source badges - muted */
+.source-badge {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium;
+  @apply bg-slate-100 text-slate-600 border border-slate-200/60;
+  @apply transition-colors duration-150;
+}
+
+.source-badge.high-reliability {
+  @apply bg-emerald-50/80 text-emerald-700 border-emerald-200/60;
+}
+
+.source-badge.medium-reliability {
+  @apply bg-amber-50/80 text-amber-700 border-amber-200/60;
+}
+
+/* Factor cards - clean */
+.factor-card {
+  @apply p-4 rounded-lg border transition-all duration-150;
+}
+
+.factor-card.bullish {
+  @apply bg-emerald-50/50 border-emerald-200/60;
+}
+
+.factor-card.bearish {
+  @apply bg-rose-50/50 border-rose-200/60;
+}
+
+/* News item - clean */
+.news-item {
+  @apply flex items-start gap-4 p-4 rounded-lg;
+  @apply bg-slate-50/50 border border-slate-100;
+  @apply transition-colors duration-150 hover:bg-slate-100/50;
+}
+
+/* Metric card - professional */
+.metric-card {
+  @apply bg-white rounded-lg p-4 border border-slate-200/60 shadow-soft;
+}
+
+.metric-card .value {
+  @apply text-xl font-semibold text-slate-800;
+}
+
+.metric-card .label {
+  @apply text-xs text-slate-500 mt-1 uppercase tracking-wide;
+}
+
+/* Input focus - subtle */
+.input-focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400;
+}
+
+/* Button styles - professional */
+.btn-primary {
+  @apply px-5 py-2.5 bg-slate-800 text-white font-medium rounded-lg;
+  @apply shadow-sm hover:bg-slate-700;
+  @apply transition-all duration-150;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply px-5 py-2.5 bg-white text-slate-700 font-medium rounded-lg border border-slate-200;
+  @apply shadow-sm hover:bg-slate-50 hover:border-slate-300;
+  @apply transition-all duration-150;
+}
+
+/* Container */
+.container-app {
+  @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Section spacing */
+.section {
+  @apply py-16 md:py-20;
+}
+
+/* Typography - clean */
+.heading-1 {
+  @apply text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-slate-800;
+}
+
+.heading-2 {
+  @apply text-2xl sm:text-3xl font-semibold text-slate-800;
+}
+
+.heading-3 {
+  @apply text-lg font-semibold text-slate-800;
+}
+
+.body-text {
+  @apply text-base text-slate-600 leading-relaxed;
+}
+
+.caption {
+  @apply text-sm text-slate-500;
+}
+
+/* Table styles */
+.data-table {
+  @apply w-full text-left;
+}
+
+.data-table th {
+  @apply px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50 border-b border-slate-200;
+}
+
+.data-table td {
+  @apply px-4 py-3 text-sm text-slate-700 border-b border-slate-100;
+}
+
+.data-table tr:hover td {
+  @apply bg-slate-50/50;
+}
+
+/* How it works step */
+.step-card {
+  @apply relative bg-white rounded-xl p-6 border border-slate-200/60 shadow-soft;
+}
+
+.step-number {
+  @apply w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-sm font-semibold;
+}
+
+/* Status indicator */
+.status-dot {
+  @apply w-2 h-2 rounded-full;
+}
+
+.status-dot.online {
+  @apply bg-emerald-500;
+}
+
+.status-dot.offline {
+  @apply bg-slate-400;
+}
