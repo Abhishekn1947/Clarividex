@@ -73,6 +73,8 @@ frontend/.vercel
 data/cache/*
 data/predictions/*
 data/accuracy/*
+data/chroma/
+backend/app/evals/experiments/*.json
 !data/cache/.gitkeep
 !data/predictions/.gitkeep
 !data/accuracy/.gitkeep

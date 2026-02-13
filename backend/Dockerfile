@@ -2,25 +2,26 @@
 FROM python:3.12-slim
 
 # Set working directory
-WORKDIR /app
+WORKDIR /project
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for caching
-COPY requirements.txt .
+COPY backend/requirements.txt /project/backend/
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r /project/backend/requirements.txt
 
 # Copy application code
-COPY . .
+COPY . /project
 
-# Create data directory
-RUN mkdir -p /app/data
+# Create data and docs directories
+RUN mkdir -p /project/backend/data/chroma /project/docs
 
 # Expose port
 EXPOSE 8000

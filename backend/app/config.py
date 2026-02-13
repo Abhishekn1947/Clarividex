@@ -111,6 +111,34 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
+    # RAG Configuration
+    # -------------------------------------------------------------------------
+    chroma_dir: str = Field(
+        default="data/chroma",
+        description="ChromaDB persistence directory",
+    )
+    chroma_collection_name: str = Field(
+        default="clarividex_docs",
+        description="ChromaDB collection name",
+    )
+    embedding_model_name: str = Field(
+        default="all-MiniLM-L6-v2",
+        description="Sentence transformer model for embeddings",
+    )
+    rag_chunk_size: int = Field(
+        default=500,
+        description="RAG document chunk size in characters",
+    )
+    rag_chunk_overlap: int = Field(
+        default=100,
+        description="RAG chunk overlap in characters",
+    )
+    rag_top_k: int = Field(
+        default=3,
+        description="Number of top chunks to retrieve for RAG",
+    )
+
+    # -------------------------------------------------------------------------
     # Claude Model Settings
     # -------------------------------------------------------------------------
     claude_model: str = Field(

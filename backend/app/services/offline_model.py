@@ -47,8 +47,20 @@ class OfflineModelService:
         {"name": "neural-chat", "quality": 0.65, "speed": "medium"},
     ]
 
+    @property
+    def system_prompt(self) -> str:
+        """Get the active system prompt, falling back to hardcoded version."""
+        try:
+            from backend.app.prompts.registry import get_active_prompt
+            prompt = get_active_prompt("offline_model")
+            if prompt:
+                return prompt
+        except Exception:
+            pass
+        return self._FALLBACK_SYSTEM_PROMPT
+
     # Optimized system prompt for financial analysis
-    SYSTEM_PROMPT = """You are a quantitative financial analyst AI. Analyze the provided market data and generate a probability assessment.
+    _FALLBACK_SYSTEM_PROMPT = """You are a quantitative financial analyst AI. Analyze the provided market data and generate a probability assessment.
 
 CRITICAL CONSTRAINT: You ONLY analyze financial market queries about:
 - Stocks, cryptocurrencies, forex pairs, commodities, indices, ETFs, futures, bonds
@@ -211,7 +223,7 @@ You MUST respond with ONLY a JSON object (no other text):
             request_data = {
                 "model": self.selected_model,
                 "prompt": prompt,
-                "system": self.SYSTEM_PROMPT,
+                "system": self.system_prompt,
                 "stream": False,
                 "options": {
                     "temperature": 0.2,  # Lower for more deterministic output
@@ -275,7 +287,7 @@ You MUST respond with ONLY a JSON object (no other text):
             request_data = {
                 "model": self.selected_model,
                 "prompt": prompt,
-                "system": self.SYSTEM_PROMPT,
+                "system": self.system_prompt,
                 "stream": False,
                 "options": {
                     "temperature": 0.2,

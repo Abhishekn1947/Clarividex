@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Brain,
   Zap,
@@ -26,7 +26,7 @@ import { PredictionForm } from "@/components/PredictionForm";
 import { PredictionResult } from "@/components/PredictionResult";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { TickerConfirmation } from "@/components/TickerConfirmation";
-import { api, PredictionResponse, HealthStatus, TickerExtractionResult } from "@/lib/api";
+import { api, PredictionResponse, HealthStatus, TickerExtractionResult, SSEEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const FEATURES = [
@@ -117,6 +117,8 @@ export default function Home() {
     result: TickerExtractionResult;
     query: string;
   } | null>(null);
+  const [sseEvents, setSseEvents] = useState<SSEEvent[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Check API health on mount
   useEffect(() => {
@@ -161,17 +163,48 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setTickerConfirmation(null);
+    setSseEvents([]);
+
+    // Create abort controller for cleanup
+    const abortController = new AbortController();
+    abortRef.current = abortController;
 
     try {
-      const result = await api.createPrediction({
-        query,
-        ticker,
-        include_technicals: true,
-        include_sentiment: true,
-        include_news: true,
-      });
-      setPrediction(result);
+      // Use SSE streaming for real-time progress
+      const streamResult = await api.streamPrediction(
+        {
+          query,
+          ticker,
+          include_technicals: true,
+          include_sentiment: true,
+          include_news: true,
+        },
+        (event: SSEEvent) => {
+          setSseEvents((prev) => [...prev, event]);
+
+          // Check for errors in the SSE stream
+          if (event.event === "error") {
+            setError((event.data as { message?: string }).message || "Prediction failed");
+          }
+        },
+        abortController.signal,
+      );
+
+      // If streaming returned a prediction, fetch the full one via the standard endpoint
+      // since the SSE done event only has a summary
+      if (streamResult) {
+        // Use the standard endpoint to get the full PredictionResponse
+        const fullResult = await api.createPrediction({
+          query,
+          ticker,
+          include_technicals: true,
+          include_sentiment: true,
+          include_news: true,
+        });
+        setPrediction(fullResult);
+      }
     } catch (err) {
+      if ((err as Error).name === "AbortError") return;
       setError(
         err instanceof Error
           ? err.message
@@ -179,8 +212,16 @@ export default function Home() {
       );
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
   };
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const handleTickerConfirm = (ticker: string, query: string) => {
     executePrediction(query, ticker);
@@ -334,7 +375,7 @@ export default function Home() {
             )}
 
             {isLoading ? (
-              <LoadingSkeleton />
+              <LoadingSkeleton sseEvents={sseEvents} />
             ) : prediction ? (
               <div className="animate-fade-in">
                 <PredictionResult prediction={prediction} />

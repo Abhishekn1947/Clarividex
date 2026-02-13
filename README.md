@@ -335,6 +335,7 @@ For in-depth technical documentation, see the `/docs` folder:
 | [PREDICTION_ENGINE.md](docs/PREDICTION_ENGINE.md) | Complete algorithm documentation with formulas |
 | [METHODOLOGY.md](docs/METHODOLOGY.md) | How predictions are generated step-by-step |
 | [TECHNICAL_INDICATORS.md](docs/TECHNICAL_INDICATORS.md) | RSI, MACD, Moving Averages explained |
+| [ENHANCEMENTS.md](docs/ENHANCEMENTS.md) | V2 enhancements: RAG, guardrails, SSE, evals |
 
 ---
 
@@ -419,10 +420,13 @@ docker-compose up --build
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/v1/predict` | POST | Generate full prediction |
+| `/api/v1/predict/stream` | POST | Stream prediction progress via SSE |
 | `/api/v1/stock/{ticker}/quote` | GET | Real-time stock quote |
 | `/api/v1/stock/{ticker}/technicals` | GET | Technical indicators |
 | `/api/v1/scenario/{ticker}` | GET | Scenario analysis |
 | `/api/v1/herd-warning/{ticker}` | GET | Herd sentiment warning |
+| `/api/v1/prompts` | GET | List prompt templates |
+| `/api/v1/eval/run` | GET | Run evaluation suite |
 
 ---
 
@@ -445,9 +449,14 @@ clarividex/
 │   │   │   ├── prediction_engine.py
 │   │   │   ├── data_aggregator.py
 │   │   │   ├── technical_analysis.py
-│   │   │   └── sentiment_service.py
+│   │   │   ├── sentiment_service.py
+│   │   │   └── stream_service.py   # V2: SSE streaming
+│   │   ├── prompts/         # V2: YAML prompt templates
+│   │   ├── guardrails/      # V2: Output guardrails
+│   │   ├── rag/             # V2: RAG pipeline (ChromaDB)
+│   │   ├── evals/           # V2: Evaluation suite
 │   │   └── utils/           # Helpers
-│   └── data/                # SQLite database
+│   └── data/                # PostgreSQL (via Docker)
 │
 ├── docs/                     # Technical documentation
 │   ├── PREDICTION_ENGINE.md
@@ -456,6 +465,23 @@ clarividex/
 │
 └── docker-compose.yml        # Container orchestration
 ```
+
+---
+
+## V2 Enhancements
+
+Clarividex V2 introduces 6 major enhancements:
+
+| Enhancement | Description |
+|-------------|-------------|
+| **Prompt Versioning** | YAML-based prompt templates with A/B testing support |
+| **RAG-Powered Chat** | Documentation-grounded answers via ChromaDB + HuggingFace embeddings |
+| **Output Guardrails** | PII redaction, financial advice detection, probability clamping (15-85%) |
+| **SSE Streaming** | Real-time prediction progress via Server-Sent Events |
+| **Singleton Caching** | Eliminated redundant API client instantiation |
+| **Evaluation Suite** | 18-case golden dataset with automated metrics and experiment tracking |
+
+For detailed documentation, see [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md).
 
 ---
 

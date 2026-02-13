@@ -55,7 +55,19 @@ class PredictionEngine:
     - Confidence calibration
     """
 
-    SYSTEM_PROMPT = """You are an elite quantitative financial analyst AI with expertise in technical analysis, sentiment analysis, options flow, and market dynamics. Analyze ALL provided market data comprehensively to generate an accurate probability assessment.
+    @property
+    def system_prompt(self) -> str:
+        """Get the active system prompt, falling back to hardcoded version."""
+        try:
+            from backend.app.prompts.registry import get_active_prompt
+            prompt = get_active_prompt("prediction_engine")
+            if prompt:
+                return prompt
+        except Exception:
+            pass
+        return self._FALLBACK_SYSTEM_PROMPT
+
+    _FALLBACK_SYSTEM_PROMPT = """You are an elite quantitative financial analyst AI with expertise in technical analysis, sentiment analysis, options flow, and market dynamics. Analyze ALL provided market data comprehensively to generate an accurate probability assessment.
 
 CRITICAL CONSTRAINT: You ONLY analyze financial market instruments including:
 - Stocks (AAPL, NVDA, TSLA, etc.)
@@ -290,7 +302,7 @@ OUTPUT FORMAT (respond with valid JSON only):
             model=settings.claude_model,
             max_tokens=settings.max_tokens,
             temperature=settings.temperature,
-            system=self.SYSTEM_PROMPT,
+            system=self.system_prompt,
             messages=[{"role": "user", "content": prompt}],
         )
 

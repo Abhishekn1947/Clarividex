@@ -2,7 +2,8 @@
 
 import { Brain, BarChart3, Newspaper, MessageSquare, TrendingUp, Database, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import type { SSEEvent } from "@/lib/api";
 
 const LOADING_STEPS = [
   { icon: Database, label: "Fetching stock data...", color: "text-slate-600" },
@@ -14,16 +15,51 @@ const LOADING_STEPS = [
   { icon: Zap, label: "Generating prediction...", color: "text-slate-600" },
 ];
 
-export function LoadingSkeleton() {
-  const [currentStep, setCurrentStep] = useState(0);
+// Map SSE event names to loading step indices
+const SSE_EVENT_TO_STEP: Record<string, number> = {
+  data_fetch: 0,
+  technical_analysis: 1,
+  sentiment_analysis: 2,
+  social_analysis: 3,
+  market_conditions: 4,
+  ai_reasoning: 5,
+  probability_calculation: 6,
+  done: 7,
+};
+
+interface LoadingSkeletonProps {
+  sseEvents?: SSEEvent[];
+}
+
+export function LoadingSkeleton({ sseEvents }: LoadingSkeletonProps) {
+  const [timerStep, setTimerStep] = useState(0);
+
+  // Compute SSE-driven step from events
+  const sseStep = useMemo(() => {
+    if (!sseEvents || sseEvents.length === 0) return -1;
+    let maxStep = -1;
+    for (const evt of sseEvents) {
+      const step = SSE_EVENT_TO_STEP[evt.event];
+      if (step !== undefined && step > maxStep) {
+        maxStep = step;
+      }
+    }
+    return maxStep;
+  }, [sseEvents]);
+
+  // Use SSE step when available, otherwise fall back to timer
+  const currentStep = sseStep >= 0 ? Math.min(sseStep, LOADING_STEPS.length - 1) : timerStep;
 
   useEffect(() => {
+    // Only run timer if no SSE events are driving the UI
+    if (sseStep >= 0) return;
+
     const interval = setInterval(() => {
-      setCurrentStep((prev) => (prev + 1) % LOADING_STEPS.length);
+      setTimerStep((prev) => (prev + 1) % LOADING_STEPS.length);
     }, 2000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [sseStep]);
 
   return (
     <div className="w-full max-w-3xl mx-auto">
@@ -55,7 +91,7 @@ export function LoadingSkeleton() {
                 Clarividex is Reading the Markets
               </p>
               <p className="text-slate-400 text-xs">
-                This usually takes 10-15 seconds
+                {sseStep >= 0 ? "Receiving live analysis updates..." : "This usually takes 10-15 seconds"}
               </p>
             </div>
           </div>

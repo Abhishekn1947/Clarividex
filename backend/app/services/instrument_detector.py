@@ -464,6 +464,14 @@ class InstrumentDetector:
 
         return None
 
+    # Common ISO 4217 currency codes for forex pattern validation
+    CURRENCY_CODES = {
+        "USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD",
+        "CNY", "HKD", "SGD", "SEK", "NOK", "DKK", "PLN", "CZK",
+        "HUF", "TRY", "ZAR", "MXN", "BRL", "INR", "KRW", "TWD",
+        "THB", "MYR", "IDR", "PHP", "RUB", "ILS", "AED", "SAR",
+    }
+
     def _detect_forex(self, query: str) -> Optional[Tuple[str, str]]:
         """Detect forex pair mentions."""
         for pair, symbol in self.FOREX_PAIRS.items():
@@ -474,8 +482,11 @@ class InstrumentDetector:
         forex_pattern = r"\b([A-Z]{3})[/\s]?([A-Z]{3})\b"
         match = re.search(forex_pattern, query.upper())
         if match:
-            pair = f"{match.group(1)}{match.group(2)}=X"
-            return pair, f"{match.group(1)}/{match.group(2)}"
+            code1, code2 = match.group(1), match.group(2)
+            # Only treat as forex if both parts are valid currency codes
+            if code1 in self.CURRENCY_CODES and code2 in self.CURRENCY_CODES:
+                pair = f"{code1}{code2}=X"
+                return pair, f"{code1}/{code2}"
 
         return None
 

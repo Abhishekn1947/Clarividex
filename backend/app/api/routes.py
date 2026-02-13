@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import structlog
 
 from backend.app.config import settings
@@ -140,6 +140,15 @@ async def create_prediction(request: PredictionRequest):
 
     try:
         prediction = await prediction_engine.generate_prediction(request)
+
+        # Apply output guardrails
+        from backend.app.guardrails import run_output_guards
+        guard_result = run_output_guards(
+            prediction.reasoning.summary,
+            probability=prediction.probability * 100,
+        )
+        # Clamp probability to 0.15-0.85 (0-1 scale)
+        prediction.probability = max(0.15, min(0.85, prediction.probability))
 
         # Record prediction in history
         prediction_history.record_prediction(
@@ -663,12 +672,46 @@ async def chat_about_results(request: dict):
     if not message:
         raise HTTPException(status_code=400, detail="Message is required")
 
-    # Try Claude API first if available
+    # RAG: Detect methodology questions and augment context with doc chunks
+    METHODOLOGY_KEYWORDS = [
+        "how does", "how do", "methodology", "prediction engine", "algorithm",
+        "technical indicator", "rsi", "macd", "data source", "how it works",
+        "explain", "what is", "monte carlo", "bayesian", "probability",
+        "bollinger", "moving average", "sentiment", "approach",
+    ]
+    is_methodology_question = any(kw in message.lower() for kw in METHODOLOGY_KEYWORDS)
+
+    if is_methodology_question:
+        try:
+            from backend.app.rag.service import rag_service
+            chunks = rag_service.query(message, top_k=3)
+            if chunks:
+                enhanced_context += "\n\nRelevant documentation:\n"
+                for i, chunk in enumerate(chunks, 1):
+                    enhanced_context += f"\n--- Doc Chunk {i} ---\n{chunk}\n"
+        except Exception as e:
+            logger.warning("RAG query failed", error=str(e))
+
+    # Load chat system prompt from prompt registry
+    chat_system_prompt = None
+    try:
+        from backend.app.prompts.registry import get_active_prompt
+        chat_system_prompt = get_active_prompt("chat_assistant")
+    except Exception:
+        pass
+
+    if chat_system_prompt:
+        enhanced_context = f"{chat_system_prompt}\n\nContext:\n{enhanced_context}"
+
+    # Import guardrails for chat response filtering
+    from backend.app.guardrails import run_output_guards
+
+    # Try Claude API first if available — reuse singleton client
     if settings.has_anthropic_key:
         try:
-            from anthropic import Anthropic
-
-            client = Anthropic(api_key=settings.anthropic_api_key)
+            client = prediction_engine.claude_client
+            if not client:
+                raise HTTPException(status_code=503, detail="Claude API not available")
 
             response = client.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -679,22 +722,29 @@ async def chat_about_results(request: dict):
                 ]
             )
 
+            response_text = response.content[0].text
+
+            # Apply guardrails to chat response
+            guard_result = run_output_guards(response_text)
+
             result = {
-                "response": response.content[0].text,
+                "response": guard_result.text,
                 "model": "claude"
             }
             if special_data:
                 result["enhanced_with"] = special_data
             return result
 
+        except HTTPException:
+            raise
         except Exception as e:
             logger.warning("Claude API failed, falling back to Ollama", error=str(e))
 
     # Fallback to local Ollama model
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as ollama_client:
             # First check which models are available
-            models_response = await client.get("http://localhost:11434/api/tags")
+            models_response = await ollama_client.get("http://localhost:11434/api/tags")
             available_models = []
             if models_response.status_code == 200:
                 models_data = models_response.json()
@@ -710,7 +760,7 @@ async def chat_about_results(request: dict):
 
             logger.info("Using Ollama for chat", model=model_to_use)
 
-            ollama_response = await client.post(
+            ollama_response = await ollama_client.post(
                 "http://localhost:11434/api/generate",
                 json={
                     "model": model_to_use,
@@ -727,8 +777,11 @@ async def chat_about_results(request: dict):
                 data = ollama_response.json()
                 response_text = data.get("response", "").strip()
                 if response_text:
+                    # Apply guardrails to Ollama response
+                    guard_result = run_output_guards(response_text)
+
                     result = {
-                        "response": response_text,
+                        "response": guard_result.text,
                         "model": f"ollama:{model_to_use}"
                     }
                     if special_data:
@@ -1145,6 +1198,105 @@ async def check_herd_warning(
     except Exception as e:
         logger.error("Herd sentiment analysis failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Herd analysis failed: {str(e)}")
+
+
+# =============================================================================
+# SSE Streaming Endpoint
+# =============================================================================
+
+
+@router.post("/predict/stream", tags=["Predictions"])
+async def stream_prediction(request: PredictionRequest):
+    """
+    Stream a prediction via Server-Sent Events.
+
+    Emits events as each stage completes: data_fetch, technical_analysis,
+    sentiment_analysis, social_analysis, market_conditions, ai_reasoning,
+    probability_calculation, done, error.
+    """
+    from backend.app.services.stream_service import prediction_stream_service
+
+    return StreamingResponse(
+        prediction_stream_service.stream_prediction(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# =============================================================================
+# Prompt Versioning Endpoints
+# =============================================================================
+
+
+@router.get("/prompts", tags=["Prompts"])
+async def list_prompt_versions():
+    """List all available prompt templates with their versions and status."""
+    from backend.app.prompts.registry import list_prompts
+
+    prompts = list_prompts()
+    return {
+        "prompts": [
+            {
+                "name": p.name,
+                "version": p.version,
+                "status": p.status,
+                "description": p.description,
+                "tags": p.tags,
+                "prompt_length": len(p.system_prompt),
+            }
+            for p in prompts
+        ],
+        "count": len(prompts),
+    }
+
+
+@router.get("/prompts/{name}/compare", tags=["Prompts"])
+async def compare_prompt_versions(name: str):
+    """Compare all versions of a prompt by name prefix."""
+    from backend.app.prompts.registry import compare_prompts
+
+    comparisons = compare_prompts(name)
+    if not comparisons:
+        raise HTTPException(status_code=404, detail=f"No prompts found matching '{name}'")
+
+    return {
+        "name_prefix": name,
+        "versions": comparisons,
+        "count": len(comparisons),
+    }
+
+
+# =============================================================================
+# Evaluation Suite Endpoint
+# =============================================================================
+
+
+@router.get("/eval/run", tags=["Evaluation"])
+async def run_evaluation(
+    categories: Optional[str] = Query(None, description="Comma-separated categories: prediction,rag,guardrail,edge_case"),
+):
+    """
+    Run the evaluation suite and return results.
+
+    This runs a lightweight subset of the golden dataset to validate
+    system health. For full evals, use: python -m backend.app.evals.runner
+    """
+    from backend.app.evals.runner import run_full_eval
+
+    cat_list = None
+    if categories:
+        cat_list = [c.strip() for c in categories.split(",")]
+
+    try:
+        results = await run_full_eval(categories=cat_list)
+        return results
+    except Exception as e:
+        logger.error("Evaluation failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)}")
 
 
 @router.get("/available-scenarios", tags=["Scenario Analysis"])

@@ -73,6 +73,13 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Finnhub API key not configured - using free data sources only")
 
+    # Initialize RAG index
+    try:
+        from backend.app.rag.service import rag_service
+        rag_service.ensure_indexed()
+    except Exception as e:
+        logger.warning("RAG initialization failed (non-fatal)", error=str(e))
+
     yield
 
     # Shutdown
