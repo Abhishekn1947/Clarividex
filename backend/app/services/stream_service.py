@@ -122,9 +122,9 @@ class PredictionStreamService:
                 "fear_greed": fg_value,
             })
 
-            # Stage 7: AI reasoning
+            # Stage 7: AI reasoning (uses pre-aggregated data to avoid redundant fetch)
             yield _sse_event("ai_reasoning", {"status": "started"})
-            prediction = await prediction_engine.generate_prediction(request)
+            prediction = await prediction_engine.generate_prediction_with_data(request, data, ticker)
             yield _sse_event("ai_reasoning", {"status": "complete"})
 
             # Stage 8: Probability calculation + guardrails
@@ -140,30 +140,22 @@ class PredictionStreamService:
             # Clamp probability on 0-1 scale
             clamped_probability = max(0.15, min(0.85, prediction.probability))
 
+            # Apply guardrail results back to the prediction object
+            prediction.probability = clamped_probability
+            prediction.reasoning.summary = guard_result.text
+
             yield _sse_event("probability_calculation", {
                 "status": "complete",
                 "probability": clamped_probability,
                 "confidence": prediction.confidence_level.value,
             })
 
-            # Stage 9: Done — send full prediction
-            yield _sse_event("done", {
-                "prediction": {
-                    "id": prediction.id,
-                    "query": prediction.query,
-                    "ticker": prediction.ticker,
-                    "probability": clamped_probability,
-                    "confidence_level": prediction.confidence_level.value,
-                    "current_price": prediction.current_price,
-                    "target_price": prediction.target_price,
-                    "sentiment": prediction.sentiment.value,
-                    "summary": guard_result.text,
-                    "data_quality_score": prediction.data_quality_score,
-                    "data_points_analyzed": prediction.data_points_analyzed,
-                    "guardrail_warnings": guard_result.warnings,
-                    "guardrail_modifications": guard_result.modifications,
-                },
-            })
+            # Stage 9: Done — send FULL PredictionResponse so frontend
+            # doesn't need a second API call
+            prediction_data = prediction.model_dump(mode="json")
+            prediction_data["guardrail_warnings"] = guard_result.warnings
+            prediction_data["guardrail_modifications"] = guard_result.modifications
+            yield _sse_event("done", {"prediction": prediction_data})
 
         except Exception as e:
             logger.error("Stream prediction error", error=str(e))

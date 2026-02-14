@@ -87,81 +87,81 @@ export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, exter
       <form onSubmit={handleSubmit} className="relative">
         <div
           className={cn(
-            "relative bg-white rounded-2xl transition-all duration-300",
+            "bg-white rounded-2xl transition-all duration-300",
             "border-2",
             isFocused
               ? "border-slate-400 shadow-lg shadow-slate-200/80 ring-4 ring-slate-100"
               : "border-slate-200 shadow-md shadow-slate-100/50 hover:border-slate-300 hover:shadow-lg"
           )}
         >
-          {/* Icon */}
-          <div className="absolute left-3 sm:left-4 top-3 sm:top-4">
-            <Search className={cn(
-              "w-5 h-5 transition-colors duration-200",
-              isFocused ? "text-slate-500" : "text-slate-400"
-            )} />
-          </div>
+          {/* Input row */}
+          <div className="flex items-end">
+            {/* Icon + Textarea */}
+            <div className="relative flex-1 min-w-0">
+              <div className="absolute left-3 sm:left-4 top-3 sm:top-4 pointer-events-none">
+                <Search className={cn(
+                  "w-5 h-5 transition-colors duration-200",
+                  isFocused ? "text-slate-500" : "text-slate-400"
+                )} />
+              </div>
 
-          {/* Textarea Input */}
-          <textarea
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            onKeyDown={handleKeyDown}
-            placeholder={PLACEHOLDER_TEXTS[placeholderIndex]}
-            rows={1}
-            className={cn(
-              "w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 text-sm sm:text-base resize-none",
-              "bg-transparent rounded-2xl",
-              "focus:outline-none",
-              "placeholder:text-slate-400 placeholder:transition-opacity",
-              "text-slate-700",
-              "min-h-[44px] sm:min-h-[56px] max-h-[120px]"
-            )}
-            disabled={busy}
-          />
+              <textarea
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                onKeyDown={handleKeyDown}
+                placeholder={PLACEHOLDER_TEXTS[placeholderIndex]}
+                rows={1}
+                className={cn(
+                  "w-full pl-10 sm:pl-12 pr-2 py-3 sm:py-4 text-sm sm:text-base resize-none",
+                  "bg-transparent rounded-l-2xl",
+                  "focus:outline-none",
+                  "placeholder:text-slate-400 placeholder:transition-opacity",
+                  "text-slate-700",
+                  "min-h-[48px] sm:min-h-[56px] max-h-[120px]"
+                )}
+                disabled={busy}
+              />
+            </div>
 
-          {/* Submit Button */}
-          <div className="absolute right-3 bottom-3">
-            <button
-              type="submit"
-              disabled={!query.trim() || busy}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2.5 min-h-[44px]",
-                "rounded-xl font-medium text-sm",
-                "transition-all duration-200 transform",
-                query.trim() && !busy
-                  ? "bg-slate-800 text-white hover:bg-slate-700 active:scale-95 shadow-md hover:shadow-lg"
-                  : busy
-                    ? "bg-slate-800 text-white cursor-wait"
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              )}
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Analyzing</span>
-                  <span className="animate-pulse">...</span>
-                </>
-              ) : isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Predicting</span>
-                  <span className="animate-pulse">...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Predict</span>
-                  <ArrowRight className={cn(
-                    "w-4 h-4 transition-transform duration-200",
-                    query.trim() ? "translate-x-0 opacity-100" : "-translate-x-1 opacity-0"
-                  )} />
-                </>
-              )}
-            </button>
+            {/* Submit Button */}
+            <div className="shrink-0 p-2 sm:p-2.5">
+              <button
+                type="submit"
+                disabled={!query.trim() || busy}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5",
+                  "rounded-xl font-medium text-sm whitespace-nowrap",
+                  "transition-all duration-200 transform",
+                  query.trim() && !busy
+                    ? "bg-slate-800 text-white hover:bg-slate-700 active:scale-95 shadow-md hover:shadow-lg"
+                    : busy
+                      ? "bg-slate-800 text-white cursor-wait"
+                      : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                )}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="hidden sm:inline">Analyzing...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="hidden sm:inline">Predicting...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Predict</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -179,24 +179,24 @@ export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, exter
             Quick examples
           </span>
         </div>
-        <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2 sm:justify-center">
+        <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-1.5 sm:gap-2 sm:justify-center">
           {EXAMPLE_QUERIES.map((example, index) => (
             <button
               key={index}
               onClick={() => handleExampleClick(example.text)}
               disabled={busy}
               className={cn(
-                "group flex items-center gap-2 px-4 py-2",
+                "group flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2",
                 "bg-white border border-slate-200 rounded-full",
-                "text-sm text-slate-600",
+                "text-xs sm:text-sm text-slate-600",
                 "hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800",
                 "transition-all duration-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 "shadow-sm hover:shadow"
               )}
             >
-              <example.icon className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors" />
-              <span className="line-clamp-1">{example.text}</span>
+              <example.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors shrink-0" />
+              <span className="line-clamp-1 text-left">{example.text}</span>
             </button>
           ))}
         </div>

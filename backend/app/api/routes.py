@@ -4,6 +4,8 @@ API Routes for Clarividex.
 Defines all REST API endpoints for the prediction service.
 """
 
+import hashlib
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -34,6 +36,34 @@ from backend.app.services.query_analyzer import query_analyzer
 logger = structlog.get_logger()
 
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# Chat response cache — avoids redundant Claude calls for identical questions
+# ---------------------------------------------------------------------------
+_chat_cache: dict[str, tuple[float, dict]] = {}
+_CHAT_CACHE_TTL = 300  # 5 minutes
+_CHAT_CACHE_MAX_SIZE = 100
+
+
+def _chat_cache_key(message: str, ticker: str | None) -> str:
+    normalized = f"{message.lower().strip()}:{(ticker or '').upper()}"
+    return hashlib.md5(normalized.encode()).hexdigest()
+
+
+def _chat_cache_get(key: str) -> dict | None:
+    if key in _chat_cache:
+        ts, response = _chat_cache[key]
+        if time.time() - ts < _CHAT_CACHE_TTL:
+            return response
+        del _chat_cache[key]
+    return None
+
+
+def _chat_cache_set(key: str, response: dict) -> None:
+    if len(_chat_cache) >= _CHAT_CACHE_MAX_SIZE:
+        oldest = min(_chat_cache, key=lambda k: _chat_cache[k][0])
+        del _chat_cache[oldest]
+    _chat_cache[key] = (time.time(), response)
 
 
 # =============================================================================
@@ -582,6 +612,13 @@ async def chat_about_results(request: dict):
     context = request.get("context", "")
     ticker = request.get("ticker", None)  # Optional ticker for enhanced analysis
 
+    # Check chat cache for identical question
+    cache_key = _chat_cache_key(message, ticker)
+    cached = _chat_cache_get(cache_key)
+    if cached:
+        logger.info("Chat: returning cached response", ticker=ticker)
+        return cached
+
     # Detect special question types and enhance context
     enhanced_context = context
     special_data = None
@@ -737,6 +774,7 @@ async def chat_about_results(request: dict):
             }
             if special_data:
                 result["enhanced_with"] = special_data
+            _chat_cache_set(cache_key, result)
             return result
 
         except HTTPException:
@@ -795,6 +833,7 @@ async def chat_about_results(request: dict):
                     }
                     if special_data:
                         result["enhanced_with"] = special_data
+                    _chat_cache_set(cache_key, result)
                     return result
 
     except Exception as e:

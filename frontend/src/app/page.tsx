@@ -226,18 +226,10 @@ export default function Home() {
         abortController.signal,
       );
 
-      // If streaming returned a prediction, fetch the full one via the standard endpoint
-      // since the SSE done event only has a summary
+      // The SSE done event now sends the full PredictionResponse,
+      // so no second API call is needed
       if (streamResult) {
-        // Use the standard endpoint to get the full PredictionResponse
-        const fullResult = await api.createPrediction({
-          query,
-          ticker,
-          include_technicals: true,
-          include_sentiment: true,
-          include_news: true,
-        });
-        setPrediction(fullResult);
+        setPrediction(streamResult);
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;

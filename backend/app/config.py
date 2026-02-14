@@ -146,7 +146,7 @@ class Settings(BaseSettings):
         description="Claude model to use",
     )
     max_tokens: int = Field(
-        default=4096,
+        default=3000,
         description="Max tokens for Claude response",
     )
     temperature: float = Field(

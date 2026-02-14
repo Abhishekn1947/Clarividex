@@ -9,8 +9,10 @@ Architecture:
 The engine automatically selects the best available option.
 """
 
+import hashlib
 import json
 import re
+import time
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -157,11 +159,42 @@ OUTPUT FORMAT (respond with valid JSON only):
         self.offline_checked = False
         self.offline_available = False
 
+        # Prediction result cache: {cache_key: (timestamp, PredictionResponse)}
+        self._prediction_cache: dict[str, tuple[float, PredictionResponse]] = {}
+        self._cache_max_size = 50
+        self._cache_ttl = settings.prediction_cache_hours * 3600
+
+    # ------------------------------------------------------------------
+    # Prediction cache helpers
+    # ------------------------------------------------------------------
+
+    def _cache_key(self, ticker: str, query: str) -> str:
+        """Generate cache key from ticker, query, and current date."""
+        normalized = f"{ticker.upper()}:{query.lower().strip()}:{datetime.now().strftime('%Y-%m-%d')}"
+        return hashlib.md5(normalized.encode()).hexdigest()
+
+    def _get_cached(self, key: str) -> Optional[PredictionResponse]:
+        """Return cached prediction if still valid, else None."""
+        if key in self._prediction_cache:
+            ts, response = self._prediction_cache[key]
+            if time.time() - ts < self._cache_ttl:
+                return response
+            del self._prediction_cache[key]
+        return None
+
+    def _set_cache(self, key: str, response: PredictionResponse) -> None:
+        """Store prediction in cache, evicting oldest entry if at capacity."""
+        if len(self._prediction_cache) >= self._cache_max_size:
+            oldest_key = min(self._prediction_cache, key=lambda k: self._prediction_cache[k][0])
+            del self._prediction_cache[oldest_key]
+        self._prediction_cache[key] = (time.time(), response)
+
     async def generate_prediction(self, request: PredictionRequest) -> PredictionResponse:
         """
-        Generate a prediction for the user's query.
+        Generate a prediction for the user's query (full pipeline).
 
-        Tries AI models in order: Claude -> Ollama -> Rule-based
+        Extracts ticker, aggregates data, then generates the prediction.
+        Uses cache when available.
 
         Args:
             request: PredictionRequest with query and options
@@ -183,6 +216,13 @@ OUTPUT FORMAT (respond with valid JSON only):
                 "Please include a ticker symbol (e.g., AAPL) or company name (e.g., Apple)."
             )
 
+        # Check cache before expensive data aggregation
+        cache_key = self._cache_key(ticker, request.query)
+        cached = self._get_cached(cache_key)
+        if cached:
+            self.logger.info("Returning cached prediction", ticker=ticker)
+            return cached
+
         # Aggregate all market data
         data = await self.data_aggregator.aggregate_data(
             ticker=ticker,
@@ -194,6 +234,64 @@ OUTPUT FORMAT (respond with valid JSON only):
         if not data.quote:
             raise ValueError(f"Could not fetch market data for {ticker}. Please verify the ticker symbol.")
 
+        response = await self._generate_prediction_from_data(request, data, ticker)
+
+        # Cache the result
+        self._set_cache(cache_key, response)
+
+        return response
+
+    async def generate_prediction_with_data(
+        self, request: PredictionRequest, data: AggregatedData, ticker: Optional[str] = None,
+    ) -> PredictionResponse:
+        """
+        Generate a prediction using pre-aggregated data (skips data fetch).
+
+        Use this when data has already been fetched (e.g. by the SSE stream service)
+        to avoid redundant API calls.
+
+        Args:
+            request: PredictionRequest with query and options
+            data: Pre-aggregated market data
+            ticker: Optional ticker (extracted from request/query if not provided)
+
+        Returns:
+            PredictionResponse with analysis
+        """
+        self.logger.info("Generating prediction with pre-aggregated data", query=request.query[:50])
+
+        if not ticker:
+            ticker = request.ticker
+        if not ticker:
+            from backend.app.services.market_data import market_data_service
+            ticker = market_data_service.extract_ticker_from_query(request.query)
+        if not ticker:
+            raise ValueError(
+                "Could not identify a stock ticker in your query. "
+                "Please include a ticker symbol (e.g., AAPL) or company name (e.g., Apple)."
+            )
+
+        if not data.quote:
+            raise ValueError(f"Could not fetch market data for {ticker}. Please verify the ticker symbol.")
+
+        # Check cache
+        cache_key = self._cache_key(ticker, request.query)
+        cached = self._get_cached(cache_key)
+        if cached:
+            self.logger.info("Returning cached prediction", ticker=ticker)
+            return cached
+
+        response = await self._generate_prediction_from_data(request, data, ticker)
+
+        # Cache the result
+        self._set_cache(cache_key, response)
+
+        return response
+
+    async def _generate_prediction_from_data(
+        self, request: PredictionRequest, data: AggregatedData, ticker: str,
+    ) -> PredictionResponse:
+        """Core prediction logic using pre-aggregated data."""
         # Parse target price and date
         target_price = request.target_price or self._extract_price_from_query(request.query)
         target_date = request.target_date or self._extract_date_from_query(request.query)

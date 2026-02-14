@@ -307,23 +307,11 @@ class QueryAnalyzer:
     async def _generate_suggestions(
         self, query: str, category: Literal["vague", "non_financial"]
     ) -> list[str]:
-        """Try Claude -> Ollama -> contextual fallback."""
-        try:
-            return await asyncio.wait_for(
-                self._call_claude_suggestions(query, category),
-                timeout=3.0,
-            )
-        except Exception as e:
-            self.logger.debug("Claude suggestion generation failed, trying Ollama", error=str(e))
+        """Use contextual fallback directly (skip Claude/Ollama to save API costs).
 
-        try:
-            return await asyncio.wait_for(
-                self._call_ollama_suggestions(query, category),
-                timeout=3.0,
-            )
-        except Exception as e:
-            self.logger.debug("Ollama suggestion generation failed, using contextual fallback", error=str(e))
-
+        The contextual fallback already produces good suggestions based on the
+        user's query, extracting tickers and timeframes from their input.
+        """
         return self._contextual_fallback_suggestions(query, category)
 
     async def _call_claude_suggestions(
