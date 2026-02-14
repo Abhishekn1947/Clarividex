@@ -15,8 +15,6 @@ from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import structlog
 
-from backend.app.config import settings
-
 logger = structlog.get_logger()
 
 # Cache sentiment results for 10 minutes

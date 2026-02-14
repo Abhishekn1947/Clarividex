@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AlertCircle, CheckCircle, HelpCircle, X } from "lucide-react";
-import { TickerExtractionResult, TickerSuggestion } from "@/lib/api";
+import { TickerExtractionResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface TickerConfirmationProps {

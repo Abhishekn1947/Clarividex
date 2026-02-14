@@ -25,8 +25,8 @@ Key Innovation: Dynamic signal reliability that adjusts based on market conditio
 import math
 import random
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from datetime import datetime
+from typing import Dict, List, Optional
 from enum import Enum
 
 import structlog

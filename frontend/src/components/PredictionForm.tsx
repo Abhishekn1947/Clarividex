@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Search, Loader2, Sparkles, ArrowRight, TrendingUp, HelpCircle } from "lucide-react";
+import { Search, Loader2, Sparkles, TrendingUp, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PredictionFormProps {

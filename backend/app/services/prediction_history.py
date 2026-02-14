@@ -4,12 +4,11 @@ Prediction History Service
 Tracks all predictions made by the system and their outcomes for accuracy analysis.
 """
 
-import json
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 import structlog
 
 logger = structlog.get_logger()

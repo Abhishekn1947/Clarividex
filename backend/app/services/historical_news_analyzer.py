@@ -5,7 +5,6 @@ This service analyzes how similar news events in the past affected stock prices,
 providing historical context for current news sentiment analysis.
 """
 
-import re
 from datetime import datetime, timedelta
 from typing import Optional
 from dataclasses import dataclass, field

@@ -17,7 +17,6 @@ export function ProbabilityGauge({
   animated = true,
 }: ProbabilityGaugeProps) {
   const [displayValue, setDisplayValue] = useState(animated ? 0 : probability);
-  const percent = Math.round(probability * 100);
 
   useEffect(() => {
     if (!animated) {

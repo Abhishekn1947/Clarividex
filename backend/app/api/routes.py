@@ -5,6 +5,7 @@ Defines all REST API endpoints for the prediction service.
 """
 
 import hashlib
+import re
 import time
 from datetime import datetime
 from typing import Optional
@@ -23,6 +24,8 @@ from backend.app.models.schemas import (
     CompanyInfo,
     TechnicalIndicators,
     TickerExtractionResult,
+    ChatRequest,
+    AnalyzeQueryRequest,
 )
 from backend.app.services.prediction_engine import prediction_engine
 from backend.app.services.market_data import market_data_service
@@ -47,7 +50,7 @@ _CHAT_CACHE_MAX_SIZE = 100
 
 def _chat_cache_key(message: str, ticker: str | None) -> str:
     normalized = f"{message.lower().strip()}:{(ticker or '').upper()}"
-    return hashlib.md5(normalized.encode()).hexdigest()
+    return hashlib.sha256(normalized.encode()).hexdigest()
 
 
 def _chat_cache_get(key: str) -> dict | None:
@@ -64,6 +67,20 @@ def _chat_cache_set(key: str, response: dict) -> None:
         oldest = min(_chat_cache, key=lambda k: _chat_cache[k][0])
         del _chat_cache[oldest]
     _chat_cache[key] = (time.time(), response)
+
+
+# ---------------------------------------------------------------------------
+# Ticker path-parameter validation
+# ---------------------------------------------------------------------------
+_TICKER_RE = re.compile(r"^[A-Z0-9.\-^=]{1,15}$")
+
+
+def _validate_ticker(ticker: str) -> str:
+    """Validate and normalize a ticker path parameter."""
+    t = ticker.upper().strip()
+    if not _TICKER_RE.match(t):
+        raise HTTPException(status_code=400, detail="Invalid ticker format")
+    return t
 
 
 # =============================================================================
@@ -265,7 +282,8 @@ async def get_stock_quote(ticker: str):
     Returns:
         StockQuote with current price and market data
     """
-    quote = market_data_service.get_quote(ticker.upper())
+    ticker = _validate_ticker(ticker)
+    quote = market_data_service.get_quote(ticker)
 
     if not quote:
         raise HTTPException(
@@ -287,7 +305,8 @@ async def get_company_info(ticker: str):
     Returns:
         CompanyInfo with company details and fundamentals
     """
-    info = market_data_service.get_company_info(ticker.upper())
+    ticker = _validate_ticker(ticker)
+    info = market_data_service.get_company_info(ticker)
 
     if not info:
         raise HTTPException(
@@ -309,7 +328,8 @@ async def get_technical_indicators(ticker: str):
     Returns:
         TechnicalIndicators with RSI, MACD, moving averages, etc.
     """
-    technicals = technical_analysis_service.calculate_indicators(ticker.upper())
+    ticker = _validate_ticker(ticker)
+    technicals = technical_analysis_service.calculate_indicators(ticker)
 
     if not technicals:
         raise HTTPException(
@@ -335,12 +355,13 @@ async def get_stock_news(
     Returns:
         List of news articles with sentiment scores
     """
+    ticker = _validate_ticker(ticker)
     # Get company name for better search
-    info = market_data_service.get_company_info(ticker.upper())
+    info = market_data_service.get_company_info(ticker)
     company_name = info.name if info else None
 
     articles = await news_service.get_news_for_ticker(
-        ticker.upper(),
+        ticker,
         company_name,
         limit=limit,
     )
@@ -374,12 +395,13 @@ async def get_social_sentiment(ticker: str):
     Returns:
         Social sentiment data from multiple platforms
     """
+    ticker = _validate_ticker(ticker)
     # Get company name for better search
-    info = market_data_service.get_company_info(ticker.upper())
+    info = market_data_service.get_company_info(ticker)
     company_name = info.name if info else None
 
     social_data = await social_service.get_social_sentiment(
-        ticker.upper(),
+        ticker,
         company_name,
     )
 
@@ -536,7 +558,7 @@ async def resolve_prediction(
     )
 
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to update prediction outcome")
+        raise HTTPException(status_code=500, detail="Failed to update prediction outcome. Please try again.")
 
     return {"success": True, "prediction_id": prediction_id, "outcome": outcome}
 
@@ -590,7 +612,7 @@ async def auto_resolve_predictions():
 
 
 @router.post("/chat", tags=["Chat"])
-async def chat_about_results(request: dict):
+async def chat_about_results(request: ChatRequest):
     """
     Chat endpoint for asking questions about prediction results.
     Uses Claude API if available, otherwise falls back to local Ollama model.
@@ -601,16 +623,16 @@ async def chat_about_results(request: dict):
     - Risk analysis questions ("What are the risks?")
 
     Args:
-        request: Contains 'message' (user question) and 'context' (prediction data)
+        request: ChatRequest with message, context, and optional ticker
 
     Returns:
         AI response about the prediction results
     """
     import httpx
 
-    message = request.get("message", "")
-    context = request.get("context", "")
-    ticker = request.get("ticker", None)  # Optional ticker for enhanced analysis
+    message = request.message
+    context = request.context
+    ticker = request.ticker
 
     # Check chat cache for identical question
     cache_key = _chat_cache_key(message, ticker)
@@ -923,7 +945,10 @@ async def run_backtest(
 
     except Exception as e:
         logger.error("Backtest failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Backtest failed: {str(e)}" if settings.app_debug else "Backtest failed. Please try again.",
+        )
 
 
 @router.post("/backtest/multi", tags=["Backtesting"])
@@ -995,8 +1020,9 @@ async def analyze_signal_effectiveness(
     """
     from backend.app.services.backtesting_engine import backtesting_engine
 
+    ticker = _validate_ticker(ticker)
     analysis = await backtesting_engine.analyze_signal_effectiveness(
-        ticker=ticker.upper(),
+        ticker=ticker,
         lookback_days=252,
     )
 
@@ -1051,9 +1077,10 @@ async def analyze_scenario(
     """
     from backend.app.services.scenario_analyzer import scenario_analyzer
 
+    ticker = _validate_ticker(ticker)
     try:
         result = await scenario_analyzer.analyze_scenario(
-            ticker=ticker.upper(),
+            ticker=ticker,
             scenario=scenario,
             magnitude=magnitude,
         )
@@ -1079,7 +1106,10 @@ async def analyze_scenario(
 
     except Exception as e:
         logger.error("Scenario analysis failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Scenario analysis failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Scenario analysis failed: {str(e)}" if settings.app_debug else "Scenario analysis failed. Please try again.",
+        )
 
 
 @router.get("/scenario/{ticker}/compare", tags=["Scenario Analysis"])
@@ -1101,6 +1131,7 @@ async def compare_scenarios(
     """
     from backend.app.services.scenario_analyzer import scenario_analyzer
 
+    ticker = _validate_ticker(ticker)
     scenario_list = [s.strip().lower() for s in scenarios.split(",")]
 
     if len(scenario_list) > 5:
@@ -1144,11 +1175,12 @@ async def get_current_risks(ticker: str):
     """
     from backend.app.services.scenario_analyzer import scenario_analyzer
 
+    ticker = _validate_ticker(ticker)
     try:
-        risks = await scenario_analyzer.get_current_risk_scenarios(ticker=ticker.upper())
+        risks = await scenario_analyzer.get_current_risk_scenarios(ticker=ticker)
 
         return {
-            "ticker": ticker.upper(),
+            "ticker": ticker,
             "risk_count": len(risks),
             "risks": [
                 {
@@ -1164,7 +1196,10 @@ async def get_current_risks(ticker: str):
 
     except Exception as e:
         logger.error("Risk analysis failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Risk analysis failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Risk analysis failed: {str(e)}" if settings.app_debug else "Risk analysis failed. Please try again.",
+        )
 
 
 # =============================================================================
@@ -1201,18 +1236,19 @@ async def check_herd_warning(
     """
     from backend.app.services.herd_sentiment import herd_sentiment_analyzer
 
+    ticker = _validate_ticker(ticker)
     try:
         # If no sentiment data provided, try to fetch it
         if social_sentiment is None:
-            info = market_data_service.get_company_info(ticker.upper())
+            info = market_data_service.get_company_info(ticker)
             company_name = info.name if info else None
-            social_data = await social_service.get_social_sentiment(ticker.upper(), company_name)
+            social_data = await social_service.get_social_sentiment(ticker, company_name)
             if social_data:
                 aggregate = social_service.calculate_aggregate_sentiment(social_data)
                 social_sentiment = (aggregate + 1) / 2  # Convert -1 to 1 scale to 0-1
 
         result = await herd_sentiment_analyzer.check_herd_warning(
-            ticker=ticker.upper(),
+            ticker=ticker,
             social_sentiment=social_sentiment,
             put_call_ratio=put_call_ratio,
             fear_greed=fear_greed,
@@ -1245,7 +1281,10 @@ async def check_herd_warning(
 
     except Exception as e:
         logger.error("Herd sentiment analysis failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Herd analysis failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Herd analysis failed: {str(e)}" if settings.app_debug else "Herd analysis failed. Please try again.",
+        )
 
 
 # =============================================================================
@@ -1254,27 +1293,14 @@ async def check_herd_warning(
 
 
 @router.post("/analyze-query", tags=["Utilities"])
-async def analyze_query(request: dict):
+async def analyze_query(request: AnalyzeQueryRequest):
     """
     Analyze a query for quality and financial relevance.
 
     Returns classification (clear/vague/non_financial), quality score,
     issues, and AI-generated improvement suggestions.
     """
-    query = request.get("query", "").strip()
-    if not query:
-        return {
-            "category": "non_financial",
-            "can_proceed": False,
-            "quality_score": 0.0,
-            "issues": ["Query is empty"],
-            "suggestions": [
-                "Will NVDA reach $150 by March 2026?",
-                "Will Tesla stock go up in the next month?",
-                "Will Bitcoin hit $100k this year?",
-            ],
-            "message": "Please enter a prediction query about financial markets.",
-        }
+    query = request.query.strip()
 
     result = await query_analyzer.analyze(query)
     return {
@@ -1384,7 +1410,10 @@ async def run_evaluation(
         return results
     except Exception as e:
         logger.error("Evaluation failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Evaluation failed: {str(e)}" if settings.app_debug else "Evaluation failed. Please try again.",
+        )
 
 
 @router.get("/available-scenarios", tags=["Scenario Analysis"])

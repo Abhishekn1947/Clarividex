@@ -6,3 +6,14 @@
 **/.env.local
 *.pyc
 .DS_Store
+
+# Secrets & sensitive files
+.env
+.env.*
+*.pem
+*.key
+*.secret
+
+# Data & database files
+data/
+*.db

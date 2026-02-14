@@ -5,7 +5,7 @@ import { Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Technical term definitions from HOW_IT_WORKS.md
-export const TERM_DEFINITIONS: Record<string, { title: string; description: string; example?: string }> = {
+const TERM_DEFINITIONS: Record<string, { title: string; description: string; example?: string }> = {
   // Technical Indicators
   rsi: {
     title: "RSI (Relative Strength Index)",

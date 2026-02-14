@@ -20,10 +20,9 @@ Usage:
 """
 
 import asyncio
-import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 from enum import Enum
 
 import structlog
@@ -31,8 +30,6 @@ import structlog
 from backend.app.services.enhanced_probability_engine import (
     EnhancedProbabilityEngine,
     EnhancedProbabilityResult,
-    VolatilityRegime,
-    MarketRegime,
 )
 
 logger = structlog.get_logger()

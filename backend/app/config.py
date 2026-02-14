@@ -8,7 +8,7 @@ for all application settings.
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -297,6 +297,14 @@ class Settings(BaseSettings):
         if v.lower() not in allowed:
             raise ValueError(f"app_env must be one of: {allowed}")
         return v.lower()
+
+    @model_validator(mode="after")
+    def validate_secret_key(self):
+        """Reject weak default secret keys in production."""
+        weak = {"dev-secret-key-change-in-production", "local-dev-secret-key-12345", ""}
+        if self.app_secret_key in weak and self.app_env == "production":
+            raise ValueError("APP_SECRET_KEY must be set to a strong value in production")
+        return self
 
     @field_validator("temperature")
     @classmethod

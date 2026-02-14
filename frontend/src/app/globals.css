@@ -86,46 +86,49 @@ section[id] {
   background: #94a3b8;
 }
 
-/* Utility classes */
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* ============================================
+   NEW KEYFRAME ANIMATIONS
+   ============================================ */
 
-  /* Muted professional text gradient */
-  .gradient-text {
-    @apply bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 bg-clip-text text-transparent;
-  }
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-20px) translateX(10px); }
+  50% { transform: translateY(-10px) translateX(-5px); }
+  75% { transform: translateY(-25px) translateX(5px); }
+}
 
-  .gradient-text-accent {
-    @apply bg-gradient-to-r from-slate-600 to-slate-500 bg-clip-text text-transparent;
-  }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
 
-  /* Card styles - clean and professional */
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-slate-200/60 p-4 sm:p-6;
-  }
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
 
-  .card-hover {
-    @apply transition-all duration-200 hover:shadow-md hover:border-slate-300/60;
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
   }
-
-  /* Glass effect - subtle */
-  .glass {
-    @apply bg-white/90 backdrop-blur-sm border border-slate-200/40;
-  }
-
-  /* Subtle shadows */
-  .shadow-soft {
-    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05), 0 4px 12px -4px rgba(0, 0, 0, 0.05);
-  }
-
-  .shadow-soft-lg {
-    box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 8px 24px -8px rgba(0, 0, 0, 0.06);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* Animation keyframes - subtle */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.1); }
+  50% { box-shadow: 0 0 40px rgba(245, 158, 11, 0.25); }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(40px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(40px) rotate(-360deg); }
+}
+
+/* Existing keyframes */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -158,7 +161,14 @@ section[id] {
   50% { opacity: 0.7; }
 }
 
-/* Animation classes */
+@keyframes skeleton-loading {
+  100% { transform: translateX(100%); }
+}
+
+/* ============================================
+   ANIMATION CLASSES
+   ============================================ */
+
 .animate-fade-in {
   animation: fade-in 0.3s ease-out forwards;
 }
@@ -175,6 +185,28 @@ section[id] {
   animation: pulse-subtle 2s ease-in-out infinite;
 }
 
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+.animate-orbit {
+  animation: orbit 20s linear infinite;
+}
+
 /* Staggered animation delays */
 .delay-100 { animation-delay: 100ms; }
 .delay-200 { animation-delay: 200ms; }
@@ -182,7 +214,108 @@ section[id] {
 .delay-400 { animation-delay: 400ms; }
 .delay-500 { animation-delay: 500ms; }
 
-/* Probability meter - professional */
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Glass card - light */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-white/20 rounded-2xl;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 4px 24px -4px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Glass card - dark variant */
+  .glass-card-dark {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 4px 24px -4px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Gradient text - vibrant animated */
+  .gradient-text-vibrant {
+    @apply bg-clip-text text-transparent animate-gradient-shift;
+    background-image: linear-gradient(135deg, #f59e0b, #ea580c, #f59e0b);
+    background-size: 200% 200%;
+  }
+
+  /* Bento grid item */
+  .bento-item {
+    @apply glass-card p-5 sm:p-6 transition-all duration-300;
+  }
+  .bento-item:hover {
+    @apply scale-[1.02];
+    box-shadow: 0 8px 40px -8px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  }
+
+  /* Scroll-triggered reveal */
+  .section-reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+  .section-reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Premium skeleton shimmer on dark bg */
+  .skeleton-premium {
+    @apply relative overflow-hidden rounded-lg;
+    background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+
+  /* Modern pill badge */
+  .pill-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold;
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  /* Muted professional text gradient (kept from original) */
+  .gradient-text {
+    @apply bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 bg-clip-text text-transparent;
+  }
+
+  .gradient-text-accent {
+    @apply bg-gradient-to-r from-slate-600 to-slate-500 bg-clip-text text-transparent;
+  }
+
+  /* Card styles - glassmorphism upgrade */
+  .card {
+    @apply bg-white/70 backdrop-blur-xl rounded-2xl border border-white/20 p-4 sm:p-6;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 4px 24px -4px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:border-slate-300/60 hover:scale-[1.01];
+  }
+
+  /* Glass effect - subtle */
+  .glass {
+    @apply bg-white/90 backdrop-blur-sm border border-slate-200/40;
+  }
+
+  /* Subtle shadows */
+  .shadow-soft {
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05), 0 4px 12px -4px rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-soft-lg {
+    box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 8px 24px -8px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* ============================================
+   PROBABILITY / LOADING
+   ============================================ */
+
 .probability-meter {
   @apply relative h-3 bg-slate-100 rounded-full overflow-hidden;
 }
@@ -222,11 +355,10 @@ section[id] {
   animation: skeleton-loading 1.5s infinite;
 }
 
-@keyframes skeleton-loading {
-  100% { transform: translateX(100%); }
-}
+/* ============================================
+   SOURCE BADGES
+   ============================================ */
 
-/* Source badges - muted */
 .source-badge {
   @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium;
   @apply bg-slate-100 text-slate-600 border border-slate-200/60;
@@ -241,9 +373,16 @@ section[id] {
   @apply bg-amber-50/80 text-amber-700 border-amber-200/60;
 }
 
-/* Factor cards - clean */
+/* ============================================
+   FACTOR / NEWS / METRIC CARDS
+   ============================================ */
+
 .factor-card {
-  @apply p-3 sm:p-4 rounded-lg border transition-all duration-150;
+  @apply p-4 rounded-2xl border transition-all duration-200;
+  @apply bg-white/50 backdrop-blur-sm;
+}
+.factor-card:hover {
+  @apply shadow-md;
 }
 
 .factor-card.bullish {
@@ -254,16 +393,15 @@ section[id] {
   @apply bg-rose-50/50 border-rose-200/60;
 }
 
-/* News item - clean */
 .news-item {
-  @apply flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg;
+  @apply flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl;
   @apply bg-slate-50/50 border border-slate-100;
   @apply transition-colors duration-150 hover:bg-slate-100/50;
 }
 
-/* Metric card - professional */
 .metric-card {
-  @apply bg-white rounded-lg p-3 sm:p-4 border border-slate-200/60 shadow-soft;
+  @apply bg-white/70 backdrop-blur-xl rounded-2xl p-4 border border-white/20;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 2px 8px -2px rgba(0, 0, 0, 0.06);
 }
 
 .metric-card .value {
@@ -271,15 +409,17 @@ section[id] {
 }
 
 .metric-card .label {
-  @apply text-xs text-slate-500 mt-1 uppercase tracking-wide;
+  @apply text-sm text-slate-500 mt-1 uppercase tracking-wide;
 }
 
-/* Input focus - subtle */
+/* ============================================
+   INPUTS / BUTTONS
+   ============================================ */
+
 .input-focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400;
 }
 
-/* Button styles - professional */
 .btn-primary {
   @apply px-4 sm:px-5 py-2.5 bg-slate-800 text-white font-medium rounded-lg;
   @apply shadow-sm hover:bg-slate-700;
@@ -293,23 +433,28 @@ section[id] {
   @apply transition-all duration-150;
 }
 
-/* Container */
+/* ============================================
+   LAYOUT
+   ============================================ */
+
 .container-app {
   @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
 }
 
-/* Section spacing */
 .section {
   @apply py-16 md:py-20;
 }
 
-/* Typography - clean */
+/* ============================================
+   TYPOGRAPHY — bumped up
+   ============================================ */
+
 .heading-1 {
-  @apply text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-slate-800;
+  @apply text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-800;
 }
 
 .heading-2 {
-  @apply text-2xl sm:text-3xl font-semibold text-slate-800;
+  @apply text-3xl sm:text-4xl font-bold text-slate-800;
 }
 
 .heading-3 {
@@ -324,7 +469,10 @@ section[id] {
   @apply text-sm text-slate-500;
 }
 
-/* Table styles */
+/* ============================================
+   DATA TABLE
+   ============================================ */
+
 .data-table {
   @apply w-full text-left;
 }
@@ -341,22 +489,36 @@ section[id] {
   @apply bg-slate-50/50;
 }
 
-/* How it works step */
+/* ============================================
+   HOW IT WORKS STEPS — glassmorphism + hover
+   ============================================ */
+
 .step-card {
-  @apply relative bg-white rounded-xl p-4 sm:p-6 border border-slate-200/60 shadow-soft;
+  @apply relative bg-white/70 backdrop-blur-xl rounded-2xl p-4 sm:p-6 border border-white/20 transition-all duration-300;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 4px 24px -4px rgba(0, 0, 0, 0.08);
+}
+.step-card:hover {
+  @apply -translate-y-1;
+  box-shadow: 0 8px 40px -8px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.4);
 }
 
 .step-number {
-  @apply w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-sm font-semibold;
+  @apply w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
 }
 
-/* Status indicator */
+/* ============================================
+   STATUS INDICATOR
+   ============================================ */
+
 .status-dot {
   @apply w-2 h-2 rounded-full;
 }
 
 .status-dot.online {
   @apply bg-emerald-500;
+  animation: glow-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
 }
 
 .status-dot.offline {

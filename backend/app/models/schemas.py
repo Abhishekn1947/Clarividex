@@ -66,6 +66,24 @@ class SentimentType(str, Enum):
 # =============================================================================
 
 
+class ChatRequest(BaseModel):
+    """Request model for the chat endpoint."""
+
+    message: str = Field(..., min_length=1, max_length=2000)
+    context: str = Field(default="", max_length=50000)
+    ticker: Optional[str] = Field(
+        default=None,
+        max_length=10,
+        pattern=r"^[A-Z0-9.\-^=]{1,10}$",
+    )
+
+
+class AnalyzeQueryRequest(BaseModel):
+    """Request model for the analyze-query endpoint."""
+
+    query: str = Field(..., min_length=1, max_length=500)
+
+
 class PredictionRequest(BaseModel):
     """Request model for making a prediction."""
 

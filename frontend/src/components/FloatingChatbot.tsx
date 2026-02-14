@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { MessageCircle, X, Send, Sparkles, Loader2, RotateCcw } from "lucide-react";
 import { PredictionResponse, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ function FormattedMessage({ content }: { content: string }) {
   // Parse the content into structured elements
   const formatContent = (text: string) => {
     const lines = text.split('\n');
-    const elements: JSX.Element[] = [];
+    const elements: React.JSX.Element[] = [];
     let listItems: string[] = [];
     let listKey = 0;
 
@@ -40,13 +40,7 @@ function FormattedMessage({ content }: { content: string }) {
         if (part.startsWith('__') && part.endsWith('__')) {
           return <strong key={i} className="font-semibold text-slate-800">{part.slice(2, -2)}</strong>;
         }
-        // Numbers and percentages
-        return part.replace(/(\d+\.?\d*%?)/g, (match) => {
-          if (match.includes('%') || parseFloat(match) > 0) {
-            return match;
-          }
-          return match;
-        });
+        return part;
       });
     };
 

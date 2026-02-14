@@ -8,7 +8,6 @@ market_conditions, ai_reasoning, probability_calculation, done, error.
 
 import json
 import asyncio
-import traceback
 from typing import AsyncGenerator, Optional
 
 import structlog
@@ -160,7 +159,7 @@ class PredictionStreamService:
         except Exception as e:
             logger.error("Stream prediction error", error=str(e))
             yield _sse_event("error", {
-                "message": f"Prediction failed: {str(e)}",
+                "message": "Prediction failed. Please try again.",
             })
 
 

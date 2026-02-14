@@ -23,8 +23,12 @@ COPY . /project
 # Create data and docs directories
 RUN mkdir -p /project/backend/data/chroma /project/docs
 
+# Create non-root user
+RUN adduser --disabled-password --no-create-home appuser
+USER appuser
+
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run the application (no --reload in production)
+CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
