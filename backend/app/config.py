@@ -5,6 +5,7 @@ Loads environment variables and provides typed configuration objects
 for all application settings.
 """
 
+import os
 from functools import lru_cache
 from typing import Optional
 
@@ -25,9 +26,9 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     # API Keys
     # -------------------------------------------------------------------------
-    anthropic_api_key: str = Field(
+    gemini_api_key: str = Field(
         default="",
-        description="Anthropic API key for Claude",
+        description="Google Gemini API key",
     )
     finnhub_api_key: str = Field(
         default="",
@@ -114,7 +115,7 @@ class Settings(BaseSettings):
     # RAG Configuration
     # -------------------------------------------------------------------------
     chroma_dir: str = Field(
-        default="data/chroma",
+        default="/tmp/chroma" if os.environ.get("AWS_LAMBDA_FUNCTION_NAME") else "data/chroma",
         description="ChromaDB persistence directory",
     )
     chroma_collection_name: str = Field(
@@ -139,19 +140,27 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
-    # Claude Model Settings
+    # Gemini Model Settings
     # -------------------------------------------------------------------------
-    claude_model: str = Field(
-        default="claude-sonnet-4-20250514",
-        description="Claude model to use",
+    gemini_model: str = Field(
+        default="gemini-2.0-flash",
+        description="Gemini model to use",
     )
     max_tokens: int = Field(
         default=3000,
-        description="Max tokens for Claude response",
+        description="Max tokens for Gemini response",
     )
     temperature: float = Field(
         default=0.3,
-        description="Temperature for Claude (lower = more deterministic)",
+        description="Temperature for Gemini (lower = more deterministic)",
+    )
+    gemini_max_retries: int = Field(
+        default=3,
+        description="Max retries on Gemini rate limit",
+    )
+    gemini_retry_base_delay: float = Field(
+        default=2.0,
+        description="Base delay in seconds for exponential backoff",
     )
 
     # -------------------------------------------------------------------------
@@ -328,9 +337,9 @@ class Settings(BaseSettings):
         return self.app_env == "development"
 
     @property
-    def has_anthropic_key(self) -> bool:
-        """Check if Anthropic API key is configured."""
-        return bool(self.anthropic_api_key and self.anthropic_api_key != "your_anthropic_api_key_here")
+    def has_gemini_key(self) -> bool:
+        """Check if Gemini API key is configured."""
+        return bool(self.gemini_api_key and self.gemini_api_key != "your_gemini_api_key_here")
 
     @property
     def has_finnhub_key(self) -> bool:

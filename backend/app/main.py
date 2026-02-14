@@ -8,6 +8,7 @@ The Clairvoyant Index - An AI-powered financial predictions platform that provid
 - Technical indicator calculations
 """
 
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -24,6 +25,9 @@ import uvicorn
 
 from backend.app.config import settings
 from backend.app.api.routes import router
+
+# Detect Lambda environment
+IS_LAMBDA = bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
 
 # Configure structured logging
@@ -63,22 +67,25 @@ async def lifespan(app: FastAPI):
     )
 
     # Log API key status
-    if settings.has_anthropic_key:
-        logger.info("Anthropic API key configured")
+    if settings.has_gemini_key:
+        logger.info("Gemini API key configured")
     else:
-        logger.warning("Anthropic API key NOT configured - predictions will use fallback analysis")
+        logger.warning("Gemini API key NOT configured - predictions will use fallback analysis")
 
     if settings.has_finnhub_key:
         logger.info("Finnhub API key configured")
     else:
         logger.info("Finnhub API key not configured - using free data sources only")
 
-    # Initialize RAG index
-    try:
-        from backend.app.rag.service import rag_service
-        rag_service.ensure_indexed()
-    except Exception as e:
-        logger.warning("RAG initialization failed (non-fatal)", error=str(e))
+    # Initialize RAG index (skip on Lambda — lazy-loads on first chat query)
+    if not IS_LAMBDA:
+        try:
+            from backend.app.rag.service import rag_service
+            rag_service.ensure_indexed()
+        except Exception as e:
+            logger.warning("RAG initialization failed (non-fatal)", error=str(e))
+    else:
+        logger.info("Lambda environment detected, skipping eager RAG indexing")
 
     yield
 
@@ -124,21 +131,25 @@ This is for informational purposes only and should not be considered financial a
     lifespan=lifespan,
 )
 
-# Configure CORS
+# Configure CORS — support CORS_ORIGINS env var for API Gateway domains
+_cors_origins = [
+    settings.frontend_url,
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3000",
+    "http://192.168.0.9:3000",
+    "http://192.168.0.9:3001",
+    "http://192.168.0.9:3002",
+    "http://192.168.0.9:3003",
+]
+_extra_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+_cors_origins.extend(_extra_origins)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        settings.frontend_url,
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://localhost:3003",
-        "http://127.0.0.1:3000",
-        "http://192.168.0.9:3000",
-        "http://192.168.0.9:3001",
-        "http://192.168.0.9:3002",
-        "http://192.168.0.9:3003",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

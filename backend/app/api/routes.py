@@ -41,7 +41,7 @@ logger = structlog.get_logger()
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
-# Chat response cache — avoids redundant Claude calls for identical questions
+# Chat response cache — avoids redundant Gemini calls for identical questions
 # ---------------------------------------------------------------------------
 _chat_cache: dict[str, tuple[float, dict]] = {}
 _CHAT_CACHE_TTL = 300  # 5 minutes
@@ -98,11 +98,11 @@ async def health_check():
     """
     apis = []
 
-    # Check Anthropic API
+    # Check Gemini API
     apis.append(APIStatus(
-        name="Anthropic (Claude)",
-        available=settings.has_anthropic_key,
-        error=None if settings.has_anthropic_key else "API key not configured",
+        name="Google Gemini",
+        available=settings.has_gemini_key,
+        error=None if settings.has_gemini_key else "API key not configured",
     ))
 
     # Check Finnhub API
@@ -119,7 +119,7 @@ async def health_check():
     ))
 
     return HealthResponse(
-        status="healthy" if settings.has_anthropic_key else "degraded",
+        status="healthy" if settings.has_gemini_key else "degraded",
         version="1.0.0",
         timestamp=datetime.utcnow(),
         apis=apis,
@@ -615,7 +615,7 @@ async def auto_resolve_predictions():
 async def chat_about_results(request: ChatRequest):
     """
     Chat endpoint for asking questions about prediction results.
-    Uses Claude API if available, otherwise falls back to local Ollama model.
+    Uses Gemini API if available, otherwise falls back to a hardcoded response.
 
     Enhanced to detect and handle:
     - Scenario/what-if questions ("What if rates go up?")
@@ -628,8 +628,6 @@ async def chat_about_results(request: ChatRequest):
     Returns:
         AI response about the prediction results
     """
-    import httpx
-
     message = request.message
     context = request.context
     ticker = request.ticker
@@ -763,105 +761,77 @@ async def chat_about_results(request: ChatRequest):
         logger.error("Failed to import guardrails", error=str(e))
         run_output_guards = None
 
-    # Try Claude API first if available — reuse singleton client
-    logger.info("Chat: checking Claude availability", has_key=settings.has_anthropic_key, has_client=bool(prediction_engine.claude_client))
-    if settings.has_anthropic_key:
-        try:
-            client = prediction_engine.claude_client
-            if not client:
-                logger.warning("Chat: has_anthropic_key is True but claude_client is None")
-                raise HTTPException(status_code=503, detail="Claude API not available")
+    # Try Gemini API first if available — reuse singleton client, with retry
+    logger.info("Chat: checking Gemini availability", has_key=settings.has_gemini_key, has_client=bool(prediction_engine.gemini_client))
+    if settings.has_gemini_key:
+        import asyncio as _asyncio
 
-            logger.info("Chat: calling Claude API")
-            response = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=500,
-                system=enhanced_context,
-                messages=[
-                    {"role": "user", "content": message}
-                ]
-            )
+        client = prediction_engine.gemini_client
+        if not client:
+            logger.warning("Chat: has_gemini_key is True but gemini_client is None")
+        else:
+            from google.genai import types as genai_types
 
-            response_text = response.content[0].text
-            logger.info("Chat: Claude response received", length=len(response_text))
+            max_retries = settings.gemini_max_retries
+            base_delay = settings.gemini_retry_base_delay
+            last_error = None
 
-            # Apply guardrails to chat response
-            if run_output_guards:
-                guard_result = run_output_guards(response_text)
-                response_text = guard_result.text
+            for attempt in range(max_retries + 1):
+                try:
+                    # On retry 2+, truncate context to reduce tokens
+                    ctx = enhanced_context
+                    if attempt >= 2:
+                        ctx = enhanced_context[:4000]
+                        logger.info("Chat: trimmed context for retry", attempt=attempt)
 
-            result = {
-                "response": response_text,
-                "model": "claude"
-            }
-            if special_data:
-                result["enhanced_with"] = special_data
-            _chat_cache_set(cache_key, result)
-            return result
+                    logger.info("Chat: calling Gemini API", attempt=attempt)
+                    response = client.models.generate_content(
+                        model=settings.gemini_model,
+                        contents=message,
+                        config=genai_types.GenerateContentConfig(
+                            system_instruction=ctx,
+                            max_output_tokens=500,
+                            temperature=0.3,
+                        ),
+                    )
 
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.warning("Claude API failed, falling back to Ollama", error=str(e), error_type=type(e).__name__)
-    else:
-        logger.warning("Chat: Anthropic key not available, skipping Claude")
+                    response_text = response.text
+                    logger.info("Chat: Gemini response received", length=len(response_text))
 
-    # Fallback to local Ollama model
-    import os
-    ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-    logger.info("Chat: trying Ollama", ollama_host=ollama_host)
-    try:
-        async with httpx.AsyncClient(timeout=120.0) as ollama_client:
-            # First check which models are available
-            models_response = await ollama_client.get(f"{ollama_host}/api/tags")
-            available_models = []
-            if models_response.status_code == 200:
-                models_data = models_response.json()
-                available_models = [m.get("name", "") for m in models_data.get("models", [])]
-
-            # Pick the best available model
-            preferred_models = ["llama3.1:latest", "llama3.1", "mistral:latest", "mistral", "deepseek-r1:latest"]
-            model_to_use = "llama3.1:latest"
-            for pm in preferred_models:
-                if pm in available_models:
-                    model_to_use = pm
-                    break
-
-            logger.info("Using Ollama for chat", model=model_to_use)
-
-            ollama_response = await ollama_client.post(
-                f"{ollama_host}/api/generate",
-                json={
-                    "model": model_to_use,
-                    "prompt": f"{enhanced_context}\n\nUser Question: {message}\n\nProvide a helpful, concise answer:",
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.3,
-                        "num_predict": 500
-                    }
-                }
-            )
-
-            if ollama_response.status_code == 200:
-                data = ollama_response.json()
-                response_text = data.get("response", "").strip()
-                if response_text:
-                    # Apply guardrails to Ollama response
-                    guard_result = run_output_guards(response_text)
+                    # Apply guardrails to chat response
+                    if run_output_guards:
+                        guard_result = run_output_guards(response_text)
+                        response_text = guard_result.text
 
                     result = {
-                        "response": guard_result.text,
-                        "model": f"ollama:{model_to_use}"
+                        "response": response_text,
+                        "model": "gemini"
                     }
                     if special_data:
                         result["enhanced_with"] = special_data
                     _chat_cache_set(cache_key, result)
                     return result
 
-    except Exception as e:
-        logger.error("Ollama chat failed", error=str(e))
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    last_error = e
+                    error_msg = str(e).lower()
+                    is_rate_limit = ("429" in error_msg or "resource exhausted" in error_msg
+                                     or "quota" in error_msg or "rate limit" in error_msg)
+                    if is_rate_limit and attempt < max_retries:
+                        delay = base_delay * (2 ** attempt)
+                        logger.warning("Chat: Gemini rate limited, retrying",
+                                         attempt=attempt + 1, delay=delay)
+                        await _asyncio.sleep(delay)
+                        continue
+                    logger.warning("Gemini API failed, using fallback response",
+                                     error=str(e), error_type=type(e).__name__)
+                    break
+    else:
+        logger.warning("Chat: Gemini key not available, using fallback response")
 
-    # Final fallback - basic response
+    # Fallback - basic response
     return {
         "response": "I can help answer questions about your prediction results. Based on the data shown, you can see the probability, confidence level, and various factors that contributed to this prediction. What specific aspect would you like to understand better?",
         "model": "fallback"
@@ -1327,7 +1297,22 @@ async def stream_prediction(request: PredictionRequest):
     Emits events as each stage completes: data_fetch, technical_analysis,
     sentiment_analysis, social_analysis, market_conditions, ai_reasoning,
     probability_calculation, done, error.
+
+    Note: SSE is not supported on AWS Lambda (30s timeout, no persistent connections).
+    Use /predict instead when running on Lambda.
     """
+    import os
+
+    # API Gateway has 30s timeout, SSE doesn't work well on Lambda
+    if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "streaming_not_supported",
+                "detail": "SSE streaming is not available in the serverless environment. Use /api/v1/predict instead.",
+            },
+        )
+
     from backend.app.services.stream_service import prediction_stream_service
 
     return StreamingResponse(

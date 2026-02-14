@@ -4,6 +4,7 @@ Prediction History Service
 Tracks all predictions made by the system and their outcomes for accuracy analysis.
 """
 
+import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -13,8 +14,11 @@ import structlog
 
 logger = structlog.get_logger()
 
-# Database path
-DB_PATH = Path(__file__).parent.parent.parent / "data" / "predictions.db"
+# Database path — use /tmp on Lambda (ephemeral but functional)
+if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    DB_PATH = Path("/tmp/predictions.db")
+else:
+    DB_PATH = Path(__file__).parent.parent.parent / "data" / "predictions.db"
 
 
 @dataclass

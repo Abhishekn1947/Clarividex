@@ -40,7 +40,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware that enforces per-IP rate limits."""
 
     async def dispatch(self, request: Request, call_next):
-        client_ip = request.client.host if request.client else "unknown"
+        # Use X-Forwarded-For when behind API Gateway / load balancer
+        client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        if not client_ip:
+            client_ip = request.client.host if request.client else "unknown"
         path = request.url.path
 
         cache, max_requests = _get_cache(path)

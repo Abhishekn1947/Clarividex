@@ -307,21 +307,22 @@ class QueryAnalyzer:
     async def _generate_suggestions(
         self, query: str, category: Literal["vague", "non_financial"]
     ) -> list[str]:
-        """Use contextual fallback directly (skip Claude/Ollama to save API costs).
+        """Use contextual fallback directly (skip Gemini to save API costs).
 
         The contextual fallback already produces good suggestions based on the
         user's query, extracting tickers and timeframes from their input.
         """
         return self._contextual_fallback_suggestions(query, category)
 
-    async def _call_claude_suggestions(
+    async def _call_gemini_suggestions(
         self, query: str, category: Literal["vague", "non_financial"]
     ) -> list[str]:
+        from google.genai import types as genai_types
         from backend.app.services.prediction_engine import prediction_engine
 
-        client = prediction_engine.claude_client
+        client = prediction_engine.gemini_client
         if not client:
-            raise RuntimeError("Claude client not available")
+            raise RuntimeError("Gemini client not available")
 
         if category == "vague":
             user_msg = (
@@ -337,68 +338,27 @@ class QueryAnalyzer:
                 f"loosely related to the user's topic, or common popular stock predictions."
             )
 
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=200,
-            temperature=0.7,
-            system=(
-                "You rephrase user queries into well-formed financial prediction questions. "
-                "Each suggestion MUST include: a ticker symbol (e.g. TSLA, AAPL), "
-                "a price target or direction, and a timeframe. "
-                "Keep the user's original intent and asset. "
-                "Respond ONLY with a JSON array of strings, no other text."
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=user_msg,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=(
+                    "You rephrase user queries into well-formed financial prediction questions. "
+                    "Each suggestion MUST include: a ticker symbol (e.g. TSLA, AAPL), "
+                    "a price target or direction, and a timeframe. "
+                    "Keep the user's original intent and asset. "
+                    "Respond ONLY with a JSON array of strings, no other text."
+                ),
+                max_output_tokens=200,
+                temperature=0.7,
             ),
-            messages=[{"role": "user", "content": user_msg}],
         )
 
-        text = response.content[0].text.strip()
+        text = response.text.strip()
         suggestions = json.loads(text)
         if isinstance(suggestions, list) and len(suggestions) >= 1:
             return [str(s) for s in suggestions[:3]]
-        raise ValueError("Unexpected Claude response format")
-
-    async def _call_ollama_suggestions(
-        self, query: str, category: Literal["vague", "non_financial"]
-    ) -> list[str]:
-        import httpx
-        import os
-
-        ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-
-        if category == "vague":
-            prompt = (
-                f"The user asked: \"{query}\"\n"
-                f"Rephrase this into 2-3 more specific financial prediction questions. "
-                f"Keep the same stock/asset, add ticker symbol, price target, and timeframe. "
-                f"Respond ONLY with a JSON array of strings."
-            )
-        else:
-            prompt = (
-                f"The user asked: \"{query}\"\n"
-                f"Suggest 2-3 financial prediction questions related to the user's topic. "
-                f"Each must have a ticker, price target, and timeframe. "
-                f"Respond ONLY with a JSON array of strings."
-            )
-
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                f"{ollama_host}/api/generate",
-                json={
-                    "model": "llama3.1:latest",
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.7, "num_predict": 200},
-                },
-            )
-            if resp.status_code == 200:
-                text = resp.json().get("response", "").strip()
-                # Try to extract JSON array from response
-                match = re.search(r"\[.*\]", text, re.DOTALL)
-                if match:
-                    suggestions = json.loads(match.group())
-                    if isinstance(suggestions, list) and len(suggestions) >= 1:
-                        return [str(s) for s in suggestions[:3]]
-        raise RuntimeError("Ollama failed to produce valid suggestions")
+        raise ValueError("Unexpected Gemini response format")
 
     def _contextual_fallback_suggestions(
         self, query: str, category: Literal["vague", "non_financial"]

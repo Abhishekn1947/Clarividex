@@ -2,13 +2,13 @@
 Prediction Engine - Smart AI reasoning with multiple model support.
 
 Architecture:
-1. Claude API (Primary) - Best quality, requires API key with credits
-2. Ollama Local (Fallback) - Good quality, free, requires local setup
-3. Rule-based (Last resort) - Always works, basic quality
+1. Gemini API (Primary) - Best quality, requires API key
+2. Rule-based (Fallback) - Always works, basic quality
 
 The engine automatically selects the best available option.
 """
 
+import asyncio
 import hashlib
 import json
 import re
@@ -17,7 +17,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-import anthropic
+from google import genai
+from google.genai import types as genai_types
 import structlog
 
 from backend.app.config import settings
@@ -36,7 +37,6 @@ from backend.app.models.schemas import (
     DecisionTrail,
 )
 from backend.app.services.data_aggregator import DataAggregator, AggregatedData
-from backend.app.services.offline_model import offline_model_service
 from backend.app.services.instrument_detector import instrument_detector
 from backend.app.services.decision_trail_builder import create_decision_trail_builder
 from backend.app.services.historical_news_analyzer import historical_news_analyzer
@@ -51,7 +51,7 @@ class PredictionEngine:
     Intelligent prediction engine with multi-model support.
 
     Features:
-    - Automatic model selection (Claude -> Ollama -> Rule-based)
+    - Automatic model selection (Gemini -> Rule-based)
     - Smart prompt engineering
     - Structured output parsing
     - Confidence calibration
@@ -144,20 +144,16 @@ OUTPUT FORMAT (respond with valid JSON only):
         self.logger = logger.bind(service="prediction_engine")
         self.data_aggregator = DataAggregator()
 
-        # Initialize Claude client
-        self.claude_client = None
-        self.claude_available = False
-        if settings.has_anthropic_key:
+        # Initialize Gemini client
+        self.gemini_client = None
+        self.gemini_available = False
+        if settings.has_gemini_key:
             try:
-                self.claude_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-                self.claude_available = True
-                self.logger.info("Claude API client initialized")
+                self.gemini_client = genai.Client(api_key=settings.gemini_api_key)
+                self.gemini_available = True
+                self.logger.info("Gemini API client initialized")
             except Exception as e:
-                self.logger.warning("Failed to initialize Claude client", error=str(e))
-
-        # Offline model will be checked on first use
-        self.offline_checked = False
-        self.offline_available = False
+                self.logger.warning("Failed to initialize Gemini client", error=str(e))
 
         # Prediction result cache: {cache_key: (timestamp, PredictionResponse)}
         self._prediction_cache: dict[str, tuple[float, PredictionResponse]] = {}
@@ -345,67 +341,137 @@ OUTPUT FORMAT (respond with valid JSON only):
         """
         context = data.to_context_string()
 
-        # Try Claude first
-        if self.claude_available and self.claude_client:
+        # Try Gemini first (with retry/backoff for rate limits)
+        if self.gemini_available and self.gemini_client:
             try:
-                analysis = await self._call_claude(query, context, target_price, target_date)
+                analysis = await self._call_gemini_with_retry(query, context, target_price, target_date)
                 if analysis:
-                    return analysis, "claude"
-            except anthropic.APIStatusError as e:
-                if "credit balance" in str(e).lower():
-                    self.logger.warning("Claude API: insufficient credits")
-                    self.claude_available = False  # Don't try again this session
+                    return analysis, "gemini"
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "quota" in error_msg or "rate limit" in error_msg or "429" in error_msg:
+                    self.logger.warning("Gemini API: quota/rate limit exceeded after retries")
+                    self.gemini_available = False  # Don't try again this session
                 else:
-                    self.logger.warning("Claude API error", error=str(e))
-            except Exception as e:
-                self.logger.warning("Claude failed", error=str(e))
-
-        # Try Ollama offline model
-        if not self.offline_checked:
-            self.offline_available = await offline_model_service.check_availability()
-            self.offline_checked = True
-
-        if self.offline_available:
-            try:
-                analysis = await offline_model_service.generate_analysis(
-                    query=query,
-                    context_data=context,
-                    target_price=target_price,
-                    target_date=target_date,
-                )
-                if analysis:
-                    self.logger.info("Using Ollama offline model")
-                    return analysis, f"ollama:{offline_model_service.selected_model}"
-            except Exception as e:
-                self.logger.warning("Ollama failed", error=str(e))
+                    self.logger.warning("Gemini API error", error=str(e))
 
         # Fallback to rule-based analysis
         self.logger.info("Using rule-based analysis (no AI available)")
         analysis = self._generate_rule_based_analysis(data, target_price, target_date, ticker=ticker)
         return analysis, "rule_based"
 
-    async def _call_claude(
+    async def _call_gemini(
         self,
         query: str,
         context: str,
         target_price: Optional[float],
         target_date: Optional[datetime],
     ) -> Optional[dict]:
-        """Call Claude API for analysis."""
+        """Call Gemini API for analysis."""
         prompt = self._build_prompt(query, context, target_price, target_date)
 
-        self.logger.debug("Calling Claude API")
+        self.logger.debug("Calling Gemini API")
 
-        message = self.claude_client.messages.create(
-            model=settings.claude_model,
-            max_tokens=settings.max_tokens,
-            temperature=settings.temperature,
-            system=self.system_prompt,
-            messages=[{"role": "user", "content": prompt}],
+        response = self.gemini_client.models.generate_content(
+            model=settings.gemini_model,
+            contents=prompt,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=self.system_prompt,
+                max_output_tokens=settings.max_tokens,
+                temperature=settings.temperature,
+            ),
         )
 
-        response_text = message.content[0].text
+        response_text = response.text
         return self._parse_ai_response(response_text)
+
+    async def _call_gemini_with_retry(
+        self,
+        query: str,
+        context: str,
+        target_price: Optional[float],
+        target_date: Optional[datetime],
+    ) -> Optional[dict]:
+        """Call Gemini API with retry/backoff on rate limit errors.
+
+        On retry attempt 2+, trims context to reduce token usage.
+        """
+        max_retries = settings.gemini_max_retries
+        base_delay = settings.gemini_retry_base_delay
+        current_context = context
+
+        for attempt in range(max_retries + 1):
+            try:
+                # On retry attempt 2+, trim context to reduce tokens
+                if attempt >= 2:
+                    current_context = self._trim_context(context)
+                    self.logger.info("Trimmed context for retry", attempt=attempt,
+                                     original_len=len(context), trimmed_len=len(current_context))
+
+                return await self._call_gemini(query, current_context, target_price, target_date)
+
+            except Exception as e:
+                error_msg = str(e).lower()
+                is_rate_limit = ("429" in error_msg or "resource exhausted" in error_msg
+                                 or "quota" in error_msg or "rate limit" in error_msg
+                                 or "resourceexhausted" in error_msg)
+
+                if is_rate_limit and attempt < max_retries:
+                    delay = base_delay * (2 ** attempt)
+                    self.logger.warning("Gemini rate limited, retrying",
+                                         attempt=attempt + 1, delay=delay, max_retries=max_retries)
+                    await asyncio.sleep(delay)
+                    continue
+
+                # Not a rate limit error or exhausted retries — re-raise
+                raise
+
+        return None
+
+    def _trim_context(self, context: str) -> str:
+        """Trim context to reduce token usage for rate-limited retries.
+
+        Keeps: price data, key technicals (RSI, MACD, MAs), top 3 news headlines,
+               market sentiment (VIX, Fear&Greed).
+        Removes: social media details, insider transactions, SEC filings,
+                 sector performance, extra news beyond 3.
+        """
+        lines = context.split("\n")
+        kept_lines: list[str] = []
+        skip_section = False
+        news_count = 0
+
+        # Sections to skip entirely
+        skip_headers = [
+            "social media", "insider", "sec filing", "sector performance",
+            "reddit", "stocktwits", "twitter",
+        ]
+
+        for line in lines:
+            line_lower = line.lower().strip()
+
+            # Check if entering a section to skip
+            if any(header in line_lower for header in skip_headers):
+                skip_section = True
+                continue
+
+            # Check if entering a new section (reset skip)
+            if line_lower and (line_lower.startswith("===") or line_lower.startswith("---")
+                               or (line_lower.startswith("#") and not skip_section)):
+                skip_section = False
+
+            if skip_section:
+                continue
+
+            # Limit news headlines to 3
+            if "news" in line_lower and ("headline" in line_lower or "article" in line_lower):
+                news_count += 1
+                if news_count > 3:
+                    continue
+
+            kept_lines.append(line)
+
+        return "\n".join(kept_lines)
 
     def _build_prompt(
         self,
@@ -1705,7 +1771,7 @@ OUTPUT FORMAT (respond with valid JSON only):
         sources = data.data_sources.copy()
         sources.append(DataSource(
             name=f"AI Model ({model_used})",
-            reliability_score=0.9 if "claude" in model_used else 0.75 if "ollama" in model_used else 0.6,
+            reliability_score=0.9 if "gemini" in model_used else 0.6,
         ))
 
         # Calculate data limitations
