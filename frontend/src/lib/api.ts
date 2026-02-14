@@ -184,6 +184,7 @@ export interface QueryAnalysisResult {
   issues: string[];
   suggestions: string[];
   message: string;
+  cleaned_query: string;
 }
 
 class APIClient {

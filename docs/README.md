@@ -15,7 +15,7 @@ Clarividex (The Clairvoyant Index) is an AI-powered financial prediction platfor
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND (Next.js 14)                    │
+│                  FRONTEND (Next.js 14 — Responsive)               │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────────┐ │
 │  │   Search    │ │  Prediction │ │   Loading   │ │    How It  │ │
 │  │    Form     │ │    Result   │ │  Skeleton   │ │    Works   │ │
@@ -72,9 +72,10 @@ Clarividex (The Clairvoyant Index) is an AI-powered financial prediction platfor
 ### Frontend
 - **Framework:** Next.js 14.2.5
 - **Language:** TypeScript 5.5.4
-- **Styling:** TailwindCSS 3.4.10
+- **Styling:** TailwindCSS 3.4.10 (mobile-first responsive)
 - **Charts:** Recharts 2.12.7
 - **HTTP Client:** Axios 1.7.4
+- **Responsive:** Full mobile support from 320px (iPhone SE) to 1024px+
 
 ### Backend
 - **Framework:** FastAPI 0.115.0
@@ -188,6 +189,7 @@ npm run dev
 | [PREDICTION_ENGINE.md](./PREDICTION_ENGINE.md) | Algorithms and mathematical models |
 | [METHODOLOGY.md](./METHODOLOGY.md) | How predictions are generated |
 | [TECHNICAL_INDICATORS.md](./TECHNICAL_INDICATORS.md) | RSI, MACD, Moving Averages explained |
+| [ENHANCEMENTS.md](./ENHANCEMENTS.md) | V2 enhancements: RAG, guardrails, SSE, mobile responsive |
 
 ---
 
@@ -210,4 +212,4 @@ MIT License - Free to use, modify, and distribute.
 
 ---
 
-*Last updated: January 30, 2026*
+*Last updated: February 12, 2026*

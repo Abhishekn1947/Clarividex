@@ -66,13 +66,13 @@ export function LoadingSkeleton({ sseEvents }: LoadingSkeletonProps) {
       {/* Main loading card */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         {/* Header skeleton */}
-        <div className="bg-slate-800 p-5">
+        <div className="bg-slate-800 p-3 sm:p-5">
           <div className="skeleton h-5 w-3/4 bg-slate-700 rounded mb-2" />
           <div className="skeleton h-3 w-1/2 bg-slate-700 rounded" />
         </div>
 
         {/* Main content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* Animated loading spinner */}
           <div className="flex flex-col items-center justify-center mb-6">
             <div className="relative w-20 h-20">
@@ -158,7 +158,7 @@ export function LoadingSkeleton({ sseEvents }: LoadingSkeletonProps) {
           </div>
 
           {/* Data sources being queried */}
-          <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+          <div className="mt-4 grid grid-cols-3 sm:flex sm:flex-wrap sm:justify-center gap-1.5">
             {["Yahoo Finance", "SEC EDGAR", "News APIs", "Reddit", "Finviz", "VIX", "Options"].map((source, index) => (
               <span
                 key={source}

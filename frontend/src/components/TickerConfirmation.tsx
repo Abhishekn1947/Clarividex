@@ -53,10 +53,10 @@ export function TickerConfirmation({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full animate-scale-in">
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-slate-200">
+        <div className="flex items-start justify-between p-4 sm:p-5 border-b border-slate-200">
           <div className="flex items-start gap-3">
             <div className={cn(
               "w-10 h-10 rounded-lg flex items-center justify-center border",
@@ -80,7 +80,7 @@ export function TickerConfirmation({
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4">
+        <div className="p-4 sm:p-5 space-y-4">
           {/* Original query */}
           <div>
             <label className="text-xs text-slate-500 uppercase tracking-wide font-medium">
@@ -127,7 +127,7 @@ export function TickerConfirmation({
                         <span className="font-semibold text-slate-800">
                           {suggestion.ticker}
                         </span>
-                        <span className="text-slate-500 ml-2 text-sm">
+                        <span className="text-slate-500 ml-2 text-sm truncate">
                           {suggestion.company_name}
                         </span>
                       </div>
@@ -223,7 +223,7 @@ export function TickerConfirmation({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 p-5 border-t border-slate-200 bg-slate-50 rounded-b-xl">
+        <div className="flex gap-3 p-4 sm:p-5 border-t border-slate-200 bg-slate-50 rounded-b-xl">
           <button
             onClick={onCancel}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"

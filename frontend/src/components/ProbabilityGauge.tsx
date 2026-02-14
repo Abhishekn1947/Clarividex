@@ -68,7 +68,7 @@ export function ProbabilityGauge({
   const strokeDashoffset = circumference - (displayValue * circumference);
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center scale-[0.85] sm:scale-100 origin-top">
       <div
         className="relative"
         style={{ width: dim.width, height: dim.height }}

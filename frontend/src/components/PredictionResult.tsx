@@ -50,11 +50,11 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
   const isBullish = prediction.probability >= 0.5;
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-4 animate-fade-in">
+    <div className="w-full max-w-3xl mx-auto space-y-3 sm:space-y-4 animate-fade-in">
       {/* Main Prediction Card */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         {/* Header */}
-        <div className="bg-slate-800 p-5 text-white">
+        <div className="bg-slate-800 p-3 sm:p-5 text-white">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <p className="text-xs text-slate-400 mb-1">Prediction</p>
@@ -89,8 +89,8 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
         </div>
 
         {/* Probability Display */}
-        <div className="p-6">
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 sm:gap-6">
             {/* Probability Gauge */}
             <ProbabilityGauge
               probability={prediction.probability}
@@ -100,7 +100,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
             />
 
             {/* Key Metrics Grid */}
-            <div className="flex-1 grid grid-cols-2 gap-3 w-full max-w-xs">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xs">
               <div className="metric-card">
                 <div className="text-xs text-slate-500 mb-1 flex items-center gap-1">
                   Confidence
@@ -258,7 +258,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
       )}
 
       {/* Factors Grid */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-3 sm:gap-4">
         {/* Bullish Factors */}
         <div className="card">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2 text-slate-700">
@@ -387,7 +387,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
       )}
 
       {/* Risks & Assumptions */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-3 sm:gap-4">
         <div className="card">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2 text-slate-700">
             <AlertTriangle className="w-4 h-4 text-amber-500" />
@@ -493,7 +493,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
               Click (i) for explanations
             </span>
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {/* RSI */}
             {prediction.technicals.rsi_14 !== null && (
               <div className="text-center p-3 rounded-lg bg-slate-50 border border-slate-100">

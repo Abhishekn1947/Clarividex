@@ -346,9 +346,10 @@ For in-depth technical documentation, see the `/docs` folder:
 |------------|---------|
 | **Next.js 14** | React framework with App Router |
 | **TypeScript** | Type-safe development |
-| **Tailwind CSS** | Utility-first styling |
+| **Tailwind CSS** | Utility-first responsive styling |
 | **Recharts** | Data visualization |
 | **Lucide React** | Icon library |
+| **Mobile-First Design** | Responsive from 320px to 1024px+ |
 
 ### Backend
 | Technology | Purpose |
@@ -434,10 +435,10 @@ docker-compose up --build
 
 ```
 clarividex/
-├── frontend/                 # Next.js React application
+├── frontend/                 # Next.js React application (mobile-responsive)
 │   ├── src/
 │   │   ├── app/             # Next.js App Router pages
-│   │   ├── components/      # React components
+│   │   ├── components/      # React components (responsive 320px+)
 │   │   └── lib/             # Utilities and API client
 │   └── public/              # Static assets
 │
@@ -470,7 +471,7 @@ clarividex/
 
 ## V2 Enhancements
 
-Clarividex V2 introduces 6 major enhancements:
+Clarividex V2 introduces 7 major enhancements:
 
 | Enhancement | Description |
 |-------------|-------------|
@@ -480,6 +481,7 @@ Clarividex V2 introduces 6 major enhancements:
 | **SSE Streaming** | Real-time prediction progress via Server-Sent Events |
 | **Singleton Caching** | Eliminated redundant API client instantiation |
 | **Evaluation Suite** | 18-case golden dataset with automated metrics and experiment tracking |
+| **Mobile Responsiveness** | Full responsive design across all components (320px - 1024px+) |
 
 For detailed documentation, see [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md).
 

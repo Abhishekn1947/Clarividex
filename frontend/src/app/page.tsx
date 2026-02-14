@@ -122,6 +122,7 @@ const HOW_IT_WORKS = [
 export default function Home() {
   const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<"online" | "offline" | "checking">("checking");
   const [tickerConfirmation, setTickerConfirmation] = useState<{
@@ -129,6 +130,7 @@ export default function Home() {
     query: string;
   } | null>(null);
   const [sseEvents, setSseEvents] = useState<SSEEvent[]>([]);
+  const [activeQuery, setActiveQuery] = useState<string>("");
   const [queryGuidance, setQueryGuidance] = useState<{
     analysis: QueryAnalysisResult;
     query: string;
@@ -172,16 +174,22 @@ export default function Home() {
     setPrediction(null);
     setTickerConfirmation(null);
     setQueryGuidance(null);
+    setIsAnalyzing(true);
 
     try {
       const analysis = await api.analyzeQuery(query);
+      // Use the cleaned query (spelling fixes, gibberish removed) if available
+      const effectiveQuery = analysis.cleaned_query || query;
 
       if (analysis.category === "clear") {
-        await proceedWithTickerValidation(query);
+        setIsAnalyzing(false);
+        await proceedWithTickerValidation(effectiveQuery);
       } else {
-        setQueryGuidance({ analysis, query });
+        setIsAnalyzing(false);
+        setQueryGuidance({ analysis, query: effectiveQuery });
       }
     } catch {
+      setIsAnalyzing(false);
       // If analyze-query fails, fall through to ticker validation directly
       await proceedWithTickerValidation(query);
     }
@@ -261,6 +269,7 @@ export default function Home() {
 
   const handleGuidanceUseSuggestion = (suggestion: string) => {
     setQueryGuidance(null);
+    setActiveQuery(suggestion);
     handleSubmit(suggestion);
   };
 
@@ -306,7 +315,7 @@ export default function Home() {
 
       {/* Header */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
-        <div className="container-app py-2">
+        <div className="container-app py-1.5">
           <div className="flex items-center justify-between">
             <a
               href="/"
@@ -316,27 +325,20 @@ export default function Home() {
                 setPrediction(null);
                 setError(null);
               }}
-              className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
             >
               <img
                 src="/clarividex-logo.png"
                 alt="Clarividex"
-                className="w-20 h-20 sm:w-28 sm:h-28 md:w-40 md:h-40 object-contain"
+                className="w-8 h-8 object-contain"
               />
-              <div>
-                <h1 className="text-xl sm:text-2xl font-semibold text-slate-800 tracking-tight">
-                  Clarividex
-                </h1>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <span className={cn(
-                    "status-dot",
-                    apiStatus === "online" ? "online" : apiStatus === "offline" ? "offline" : "bg-amber-400"
-                  )} />
-                  <span>
-                    {apiStatus === "online" ? "Live" : apiStatus === "offline" ? "Offline" : "Checking..."}
-                  </span>
-                </div>
-              </div>
+              <h1 className="text-lg font-semibold text-slate-800 tracking-tight">
+                Clarividex
+              </h1>
+              <span className={cn(
+                "status-dot",
+                apiStatus === "online" ? "online" : apiStatus === "offline" ? "offline" : "bg-amber-400"
+              )} />
             </a>
 
             <nav className="flex items-center gap-4">
@@ -421,7 +423,7 @@ export default function Home() {
         </div>
 
         {/* Search Form */}
-        <PredictionForm onSubmit={handleSubmit} isLoading={isLoading} />
+        <PredictionForm onSubmit={handleSubmit} isLoading={isLoading} isAnalyzing={isAnalyzing} externalQuery={activeQuery} />
 
         {/* Error Display */}
         {error && (
@@ -832,13 +834,13 @@ export default function Home() {
       <footer className="border-t border-slate-200 bg-white py-6 px-4 sm:px-6 lg:px-8">
         <div className="container-app">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <img
                 src="/clarividex-logo.png"
                 alt=""
-                className="w-16 h-16 sm:w-28 sm:h-28 object-contain"
+                className="w-8 h-8 object-contain"
               />
-              <span className="font-semibold text-slate-700 text-xl">Clarividex</span>
+              <span className="font-semibold text-slate-700 text-lg">Clarividex</span>
             </div>
 
             <div className="flex items-center gap-1.5 text-slate-500 text-xs">

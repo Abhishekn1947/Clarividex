@@ -10,6 +10,7 @@ To install Ollama:
 """
 
 import json
+import os
 import re
 import asyncio
 from typing import Optional, Any
@@ -32,7 +33,7 @@ class OfflineModelService:
     - Intelligent prompt engineering for financial analysis
     """
 
-    OLLAMA_BASE_URL = "http://localhost:11434"
+    OLLAMA_BASE_URL = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
     # Models ranked by quality (best first)
     # The service will use the best available model

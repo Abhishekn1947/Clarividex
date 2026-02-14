@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 interface PredictionFormProps {
   onSubmit: (query: string) => void;
   isLoading: boolean;
+  isAnalyzing?: boolean;
+  externalQuery?: string;
 }
 
 const EXAMPLE_QUERIES = [
@@ -24,11 +26,21 @@ const PLACEHOLDER_TEXTS = [
   "Ask Clarividex: What will happen to Microsoft stock?",
 ];
 
-export function PredictionForm({ onSubmit, isLoading }: PredictionFormProps) {
+export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, externalQuery }: PredictionFormProps) {
+  const busy = isLoading || isAnalyzing;
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync search box when parent sets a new query (e.g. from suggestion click)
+  useEffect(() => {
+    if (externalQuery !== undefined && externalQuery !== query) {
+      setQuery(externalQuery);
+    }
+    // Only react to externalQuery changes, not internal query edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalQuery]);
 
   // Rotate placeholder text
   useEffect(() => {
@@ -50,7 +62,7 @@ export function PredictionForm({ onSubmit, isLoading }: PredictionFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim() && !isLoading) {
+    if (query.trim() && !busy) {
       onSubmit(query.trim());
     }
   };
@@ -63,7 +75,7 @@ export function PredictionForm({ onSubmit, isLoading }: PredictionFormProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (query.trim() && !isLoading) {
+      if (query.trim() && !busy) {
         onSubmit(query.trim());
       }
     }
@@ -83,7 +95,7 @@ export function PredictionForm({ onSubmit, isLoading }: PredictionFormProps) {
           )}
         >
           {/* Icon */}
-          <div className="absolute left-4 top-4">
+          <div className="absolute left-3 sm:left-4 top-3 sm:top-4">
             <Search className={cn(
               "w-5 h-5 transition-colors duration-200",
               isFocused ? "text-slate-500" : "text-slate-400"
@@ -101,34 +113,42 @@ export function PredictionForm({ onSubmit, isLoading }: PredictionFormProps) {
             placeholder={PLACEHOLDER_TEXTS[placeholderIndex]}
             rows={1}
             className={cn(
-              "w-full pl-12 pr-4 py-4 text-base resize-none",
+              "w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 text-sm sm:text-base resize-none",
               "bg-transparent rounded-2xl",
               "focus:outline-none",
               "placeholder:text-slate-400 placeholder:transition-opacity",
               "text-slate-700",
-              "min-h-[56px] max-h-[120px]"
+              "min-h-[44px] sm:min-h-[56px] max-h-[120px]"
             )}
-            disabled={isLoading}
+            disabled={busy}
           />
 
           {/* Submit Button */}
           <div className="absolute right-3 bottom-3">
             <button
               type="submit"
-              disabled={!query.trim() || isLoading}
+              disabled={!query.trim() || busy}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5",
+                "flex items-center gap-2 px-4 py-2.5 min-h-[44px]",
                 "rounded-xl font-medium text-sm",
                 "transition-all duration-200 transform",
-                query.trim() && !isLoading
+                query.trim() && !busy
                   ? "bg-slate-800 text-white hover:bg-slate-700 active:scale-95 shadow-md hover:shadow-lg"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : busy
+                    ? "bg-slate-800 text-white cursor-wait"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
               )}
             >
-              {isLoading ? (
+              {isAnalyzing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Analyzing</span>
+                  <span className="animate-pulse">...</span>
+                </>
+              ) : isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Predicting</span>
                   <span className="animate-pulse">...</span>
                 </>
               ) : (
@@ -159,12 +179,12 @@ export function PredictionForm({ onSubmit, isLoading }: PredictionFormProps) {
             Quick examples
           </span>
         </div>
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2 sm:justify-center">
           {EXAMPLE_QUERIES.map((example, index) => (
             <button
               key={index}
               onClick={() => handleExampleClick(example.text)}
-              disabled={isLoading}
+              disabled={busy}
               className={cn(
                 "group flex items-center gap-2 px-4 py-2",
                 "bg-white border border-slate-200 rounded-full",

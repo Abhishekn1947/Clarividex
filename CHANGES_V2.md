@@ -1911,18 +1911,27 @@ backend/app/evals/experiments/.gitkeep
 docs/ENHANCEMENTS.md
 ```
 
-### Modified Files (10 total)
+### Modified Files (21 total)
 ```
 backend/requirements.txt           — 8 new dependencies
 backend/app/config.py              — 6 RAG settings
-backend/app/main.py                — RAG init in lifespan
+backend/app/main.py                — RAG init in lifespan + CORS for mobile testing
 backend/app/api/routes.py          — 4 new endpoints + guardrails + RAG in chat + singleton fix
 backend/app/services/prediction_engine.py  — prompt registry integration
 backend/app/services/offline_model.py      — prompt registry integration
 docker-compose.yml                 — docs volume mount
 backend/Dockerfile                 — mkdir for chroma + docs
 frontend/src/lib/api.ts            — SSE streaming method
-frontend/src/components/LoadingSkeleton.tsx — SSE-driven steps
-frontend/src/app/page.tsx          — streaming prediction flow
-README.md                          — V2 features section
+frontend/src/components/LoadingSkeleton.tsx — SSE-driven steps + responsive layout
+frontend/src/app/page.tsx          — streaming prediction flow + responsive design
+README.md                          — V2 features section + mobile responsiveness
+frontend/src/app/globals.css       — Responsive padding/spacing for utility classes
+frontend/src/components/PredictionResult.tsx  — Responsive grids and padding
+frontend/src/components/FloatingChatbot.tsx   — Mobile-friendly chat window sizing
+frontend/src/components/PredictionForm.tsx     — Responsive example buttons + touch targets
+frontend/src/components/DecisionTreeModal.tsx  — Mobile modal insets + node sizing
+frontend/src/components/DecisionTree.tsx       — Responsive section padding
+frontend/src/components/InfoTooltip.tsx        — Viewport-aware tooltip width
+frontend/src/components/TickerConfirmation.tsx — Responsive modal padding + text truncation
+frontend/src/components/ProbabilityGauge.tsx   — Mobile scale transform
 ```

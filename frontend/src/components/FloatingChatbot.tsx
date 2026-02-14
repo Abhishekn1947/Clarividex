@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { MessageCircle, X, Send, Sparkles, Loader2, RotateCcw } from "lucide-react";
-import { PredictionResponse } from "@/lib/api";
+import { PredictionResponse, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // Format assistant message with proper structure
@@ -210,7 +210,7 @@ export default function FloatingChatbot({ prediction, onClose }: FloatingChatbot
 
   // Build JSON context when prediction changes
   const buildContextJSON = useCallback((): PredictionContextJSON => {
-    const ta = prediction.technical_analysis;
+    const ta = prediction.technicals;
 
     return {
       meta: {
@@ -220,7 +220,7 @@ export default function FloatingChatbot({ prediction, onClose }: FloatingChatbot
       prediction: {
         query: prediction.query,
         ticker: prediction.ticker || "N/A",
-        companyName: prediction.company_name || "",
+        companyName: "",
         currentPrice: prediction.current_price || null,
         targetPrice: prediction.target_price || null,
         targetDate: prediction.target_date || null,
@@ -232,8 +232,8 @@ export default function FloatingChatbot({ prediction, onClose }: FloatingChatbot
         sourcesCount: prediction.sources_used?.length || 0,
       },
       technicals: ta ? {
-        rsi: ta.rsi || null,
-        rsiSignal: ta.rsi ? (ta.rsi < 30 ? "OVERSOLD" : ta.rsi > 70 ? "OVERBOUGHT" : "NEUTRAL") : "N/A",
+        rsi: ta.rsi_14 || null,
+        rsiSignal: ta.rsi_14 ? (ta.rsi_14 < 30 ? "OVERSOLD" : ta.rsi_14 > 70 ? "OVERBOUGHT" : "NEUTRAL") : "N/A",
         macd: ta.macd || null,
         macdSignal: ta.macd_signal || null,
         macdHistogram: ta.macd_histogram || null,
@@ -241,10 +241,10 @@ export default function FloatingChatbot({ prediction, onClose }: FloatingChatbot
         sma20: ta.sma_20 || null,
         sma50: ta.sma_50 || null,
         sma200: ta.sma_200 || null,
-        bbUpper: ta.bb_upper || null,
-        bbLower: ta.bb_lower || null,
-        atr: ta.atr || null,
-        trend: ta.trend || "N/A",
+        bbUpper: ta.bollinger_upper || null,
+        bbLower: ta.bollinger_lower || null,
+        atr: null,
+        trend: "N/A",
       } : null,
       analysis: {
         summary: prediction.reasoning.summary,
@@ -406,10 +406,12 @@ CONTENT INSTRUCTIONS:
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    const messageText = input.trim();
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: messageText,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -417,18 +419,7 @@ CONTENT INSTRUCTIONS:
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/v1/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: input.trim(),
-          context: buildContextFromJSON(),
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to get response");
-
-      const data = await response.json();
+      const data = await api.chat(messageText, buildContextFromJSON());
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -438,6 +429,7 @@ CONTENT INSTRUCTIONS:
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      console.error("[Clarividex Chat] Error:", error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -459,7 +451,7 @@ CONTENT INSTRUCTIONS:
   return (
     <>
       {/* Floating Button */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[60]">
         {/* Tooltip */}
         {showTooltip && !isOpen && (
           <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-800 text-white text-xs rounded-lg shadow-lg animate-fade-in">
@@ -502,7 +494,7 @@ CONTENT INSTRUCTIONS:
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col animate-scale-in" style={{ maxHeight: "500px" }}>
+        <div className="fixed bottom-20 right-4 sm:bottom-24 sm:right-6 z-[60] w-[calc(100vw-2rem)] sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col animate-scale-in" style={{ maxHeight: "min(500px, calc(100vh - 6rem))" }}>
           {/* Header */}
           <div className="shrink-0 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-600 rounded-t-xl">
             <div className="flex items-center justify-between">

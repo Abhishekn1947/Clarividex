@@ -1,6 +1,6 @@
 # Clarividex V2 Enhancements
 
-This document describes the 6 enhancements introduced in V2 of the Clarividex platform.
+This document describes the 7 enhancements introduced in V2 of the Clarividex platform.
 
 ---
 
@@ -176,6 +176,56 @@ GET /api/v1/eval/run
 | rag | 4 | RAG retrieval and grounding tests |
 | guardrail | 4 | Output guardrail enforcement tests |
 | edge_case | 5 | Edge case handling tests |
+
+---
+
+## 7. Mobile Responsiveness
+
+**Location:** All frontend components (`frontend/src/`)
+
+Comprehensive mobile-first responsive design audit and fix across all 11 frontend files, targeting viewports from 320px (iPhone SE) to tablets (768px) to desktop (1024px+).
+
+### Design Approach
+
+- **Mobile-first**: Base styles target small screens, `sm:` (640px+) and `md:` (768px+) breakpoints scale up
+- **Touch-friendly**: All interactive elements have minimum 44px touch targets
+- **Viewport-aware**: Chat window and modals use `calc(100vw-2rem)` and `min()` for fluid sizing
+- **No horizontal overflow**: All components fit within the viewport at 320px
+
+### Files Modified (11)
+
+| File | Key Changes |
+|------|-------------|
+| `globals.css` | Responsive padding on `.card`, `.step-card`, `.metric-card`, `.factor-card`, `.news-item`, `.data-table`, `.btn-*`, scroll-margin |
+| `page.tsx` | Logo scaling (`w-20 h-20` to `md:w-40 md:h-40`), stats grid (`grid-cols-2 sm:grid-cols-4`), table cell padding, footer |
+| `PredictionResult.tsx` | Header/content padding, metrics grid collapse (`grid-cols-1 sm:grid-cols-2`), technical indicators grid |
+| `FloatingChatbot.tsx` | Chat window width (`w-[calc(100vw-2rem)] sm:w-96`), viewport-relative max-height, button positioning |
+| `PredictionForm.tsx` | Example buttons grid layout, search input sizing, submit button touch targets |
+| `DecisionTreeModal.tsx` | Modal inset (`inset-2 sm:inset-4 lg:inset-6`), node card width, label text scaling |
+| `DecisionTree.tsx` | Section padding, node card padding |
+| `InfoTooltip.tsx` | Tooltip max-width (`max-w-[calc(100vw-2rem)]`), modal margin |
+| `TickerConfirmation.tsx` | Modal padding, company name text truncation |
+| `LoadingSkeleton.tsx` | Badge layout (`grid grid-cols-3 sm:flex`), skeleton padding |
+| `ProbabilityGauge.tsx` | Scale transform (`scale-[0.85] sm:scale-100`) |
+
+### Responsive Patterns Used
+
+| Pattern | Example | Purpose |
+|---------|---------|---------|
+| Responsive padding | `p-3 sm:p-5` | Tighter padding on mobile, standard on desktop |
+| Grid collapse | `grid-cols-1 sm:grid-cols-2 md:grid-cols-4` | Stack cards vertically on mobile |
+| Viewport-relative sizing | `w-[calc(100vw-2rem)]` | Fluid width with margins |
+| Scale transform | `scale-[0.85] sm:scale-100` | Proportional scaling for complex components |
+| Min/max functions | `min(500px, calc(100vh - 6rem))` | Viewport-capped max-height |
+| Touch targets | `min-h-[44px]` | Minimum 44px for tap-friendly buttons |
+
+### Testing Viewports
+
+- **320px** (iPhone SE) — smallest supported
+- **375px** (iPhone 12/13/14)
+- **390px** (iPhone 14 Pro)
+- **768px** (iPad portrait)
+- **1024px+** (Desktop) — layout unchanged from pre-responsive
 
 ---
 

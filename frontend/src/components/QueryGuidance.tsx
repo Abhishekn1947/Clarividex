@@ -22,7 +22,7 @@ export function QueryGuidance({
   const isVague = analysis.category === "vague";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full animate-scale-in">
         {/* Header */}
         <div className="flex items-start justify-between p-4 sm:p-5 border-b border-slate-200">

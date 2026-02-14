@@ -1245,6 +1245,7 @@ async def analyze_query(request: dict):
         "issues": result.issues,
         "suggestions": result.suggestions,
         "message": result.message,
+        "cleaned_query": result.cleaned_query,
     }
 
 

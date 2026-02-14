@@ -58,7 +58,13 @@ body {
 
 /* Scroll offset for anchor links (accounts for sticky header) */
 section[id] {
-  scroll-margin-top: 80px;
+  scroll-margin-top: 60px;
+}
+
+@media (min-width: 640px) {
+  section[id] {
+    scroll-margin-top: 80px;
+  }
 }
 
 /* Custom scrollbar - subtle */
@@ -97,7 +103,7 @@ section[id] {
 
   /* Card styles - clean and professional */
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-slate-200/60 p-6;
+    @apply bg-white rounded-xl shadow-sm border border-slate-200/60 p-4 sm:p-6;
   }
 
   .card-hover {
@@ -237,7 +243,7 @@ section[id] {
 
 /* Factor cards - clean */
 .factor-card {
-  @apply p-4 rounded-lg border transition-all duration-150;
+  @apply p-3 sm:p-4 rounded-lg border transition-all duration-150;
 }
 
 .factor-card.bullish {
@@ -250,14 +256,14 @@ section[id] {
 
 /* News item - clean */
 .news-item {
-  @apply flex items-start gap-4 p-4 rounded-lg;
+  @apply flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg;
   @apply bg-slate-50/50 border border-slate-100;
   @apply transition-colors duration-150 hover:bg-slate-100/50;
 }
 
 /* Metric card - professional */
 .metric-card {
-  @apply bg-white rounded-lg p-4 border border-slate-200/60 shadow-soft;
+  @apply bg-white rounded-lg p-3 sm:p-4 border border-slate-200/60 shadow-soft;
 }
 
 .metric-card .value {
@@ -275,14 +281,14 @@ section[id] {
 
 /* Button styles - professional */
 .btn-primary {
-  @apply px-5 py-2.5 bg-slate-800 text-white font-medium rounded-lg;
+  @apply px-4 sm:px-5 py-2.5 bg-slate-800 text-white font-medium rounded-lg;
   @apply shadow-sm hover:bg-slate-700;
   @apply transition-all duration-150;
   @apply disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .btn-secondary {
-  @apply px-5 py-2.5 bg-white text-slate-700 font-medium rounded-lg border border-slate-200;
+  @apply px-4 sm:px-5 py-2.5 bg-white text-slate-700 font-medium rounded-lg border border-slate-200;
   @apply shadow-sm hover:bg-slate-50 hover:border-slate-300;
   @apply transition-all duration-150;
 }
@@ -324,11 +330,11 @@ section[id] {
 }
 
 .data-table th {
-  @apply px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50 border-b border-slate-200;
+  @apply px-2 py-2 sm:px-4 sm:py-3 text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50 border-b border-slate-200;
 }
 
 .data-table td {
-  @apply px-4 py-3 text-sm text-slate-700 border-b border-slate-100;
+  @apply px-2 py-2 sm:px-4 sm:py-3 text-sm text-slate-700 border-b border-slate-100;
 }
 
 .data-table tr:hover td {
@@ -337,7 +343,7 @@ section[id] {
 
 /* How it works step */
 .step-card {
-  @apply relative bg-white rounded-xl p-6 border border-slate-200/60 shadow-soft;
+  @apply relative bg-white rounded-xl p-4 sm:p-6 border border-slate-200/60 shadow-soft;
 }
 
 .step-number {

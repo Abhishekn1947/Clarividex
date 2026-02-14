@@ -152,7 +152,7 @@ export function InfoTooltip({ term, className, size = "sm" }: InfoTooltipProps) 
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-md w-full animate-scale-in"
+            className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between p-4 border-b border-slate-200">
@@ -223,7 +223,7 @@ export function InlineTooltip({ term, children }: InlineTooltipProps) {
         <Info className="w-3 h-3" />
       </button>
       {showTooltip && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-lg z-50">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 max-w-[calc(100vw-2rem)] p-3 bg-slate-800 text-white text-xs rounded-lg shadow-lg z-50">
           <div className="font-medium mb-1">{definition.title}</div>
           <div className="text-slate-300 leading-relaxed">{definition.description}</div>
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45" />
