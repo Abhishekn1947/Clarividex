@@ -21,15 +21,22 @@ import {
   Target,
   Layers,
   RefreshCw,
+  MessageSquare,
 } from "lucide-react";
 import { PredictionForm } from "@/components/PredictionForm";
 import { PredictionResult } from "@/components/PredictionResult";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { TickerConfirmation } from "@/components/TickerConfirmation";
-import { api, PredictionResponse, HealthStatus, TickerExtractionResult, SSEEvent } from "@/lib/api";
+import { QueryGuidance } from "@/components/QueryGuidance";
+import { api, PredictionResponse, HealthStatus, TickerExtractionResult, QueryAnalysisResult, SSEEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const FEATURES = [
+const FEATURES: {
+  icon: typeof Database;
+  title: string;
+  description: string;
+  badge?: string;
+}[] = [
   {
     icon: Database,
     title: "12+ Data Sources",
@@ -37,28 +44,32 @@ const FEATURES = [
   },
   {
     icon: Brain,
-    title: "AI Analysis",
-    description: "Advanced reasoning engine analyzes 250+ data points per prediction.",
-  },
-  {
-    icon: LineChart,
-    title: "Technical Indicators",
-    description: "RSI, MACD, Bollinger Bands, moving averages, support/resistance.",
-  },
-  {
-    icon: Activity,
-    title: "Market Sentiment",
-    description: "VIX, Fear & Greed Index, options flow, and social sentiment.",
-  },
-  {
-    icon: PieChart,
-    title: "Transparent Reasoning",
-    description: "Every prediction shows factors with weighted evidence.",
+    title: "AI-Powered Reasoning",
+    description: "Versioned prompt engine analyzes 250+ data points with reproducible, A/B-testable logic.",
   },
   {
     icon: Zap,
-    title: "Real-Time Data",
-    description: "Live stock prices, breaking news, up-to-the-minute data.",
+    title: "Live Streaming",
+    description: "SSE real-time prediction pipeline streams each analysis stage as it happens.",
+    badge: "New",
+  },
+  {
+    icon: Shield,
+    title: "Output Guardrails",
+    description: "PII redaction, advice-language detection, and probability clamping between 15-85%.",
+    badge: "New",
+  },
+  {
+    icon: MessageSquare,
+    title: "RAG Chat Assistant",
+    description: "Ask follow-up questions grounded in the prediction data and source documents.",
+    badge: "New",
+  },
+  {
+    icon: Target,
+    title: "Eval-Tested Quality",
+    description: "17 golden test cases with 100% pass rate ensure consistent, reliable predictions.",
+    badge: "New",
   },
 ];
 
@@ -95,16 +106,16 @@ const HOW_IT_WORKS = [
   {
     step: 3,
     icon: Cpu,
-    title: "AI Analysis",
-    description: "Our AI engine processes 250+ data points using weighted scoring across multiple factors.",
+    title: "AI Analysis + Streaming",
+    description: "Our AI engine processes 250+ data points via SSE, streaming each analysis stage to you in real time.",
     details: ["Technical: 25%", "News: 20%", "Options: 15%", "Market: 15%", "Analyst: 15%", "Social: 10%"],
   },
   {
     step: 4,
     icon: FileText,
-    title: "Prediction Generation",
-    description: "Receive a probability-based prediction with full transparency on bullish/bearish factors.",
-    details: ["Probability score", "Confidence level", "Key factors", "Risk assessment"],
+    title: "Guardrailed Prediction",
+    description: "Output guardrails enforce probability bounds (15-85%), redact PII, and flag advice language before delivery.",
+    details: ["Probability clamped 15-85%", "PII redaction", "Advice detection", "Risk assessment"],
   },
 ];
 
@@ -118,6 +129,10 @@ export default function Home() {
     query: string;
   } | null>(null);
   const [sseEvents, setSseEvents] = useState<SSEEvent[]>([]);
+  const [queryGuidance, setQueryGuidance] = useState<{
+    analysis: QueryAnalysisResult;
+    query: string;
+  } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Check API health on mount
@@ -133,22 +148,15 @@ export default function Home() {
     checkHealth();
   }, []);
 
-  const handleSubmit = async (query: string) => {
-    setError(null);
-    setPrediction(null);
-    setTickerConfirmation(null);
-
+  const proceedWithTickerValidation = async (query: string) => {
     try {
-      // First, validate the ticker extraction
       const validation = await api.validateTicker(query);
 
-      // If needs confirmation and confidence is low, show confirmation dialog
       if (validation.needs_confirmation && validation.confidence < 0.8) {
         setTickerConfirmation({ result: validation, query });
         return;
       }
 
-      // Otherwise, proceed with prediction
       await executePrediction(query, validation.ticker || undefined);
     } catch (err) {
       setError(
@@ -156,6 +164,26 @@ export default function Home() {
           ? err.message
           : "Failed to validate ticker. Please try again."
       );
+    }
+  };
+
+  const handleSubmit = async (query: string) => {
+    setError(null);
+    setPrediction(null);
+    setTickerConfirmation(null);
+    setQueryGuidance(null);
+
+    try {
+      const analysis = await api.analyzeQuery(query);
+
+      if (analysis.category === "clear") {
+        await proceedWithTickerValidation(query);
+      } else {
+        setQueryGuidance({ analysis, query });
+      }
+    } catch {
+      // If analyze-query fails, fall through to ticker validation directly
+      await proceedWithTickerValidation(query);
     }
   };
 
@@ -231,6 +259,23 @@ export default function Home() {
     setTickerConfirmation(null);
   };
 
+  const handleGuidanceUseSuggestion = (suggestion: string) => {
+    setQueryGuidance(null);
+    handleSubmit(suggestion);
+  };
+
+  const handleGuidanceProceedAnyway = () => {
+    if (queryGuidance) {
+      const query = queryGuidance.query;
+      setQueryGuidance(null);
+      proceedWithTickerValidation(query);
+    }
+  };
+
+  const handleGuidanceCancel = () => {
+    setQueryGuidance(null);
+  };
+
   const handleNewPrediction = () => {
     setPrediction(null);
     setError(null);
@@ -238,6 +283,17 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      {/* Query Guidance Dialog */}
+      {queryGuidance && (
+        <QueryGuidance
+          analysis={queryGuidance.analysis}
+          originalQuery={queryGuidance.query}
+          onUseSuggestion={handleGuidanceUseSuggestion}
+          onProceedAnyway={handleGuidanceProceedAnyway}
+          onCancel={handleGuidanceCancel}
+        />
+      )}
+
       {/* Ticker Confirmation Dialog */}
       {tickerConfirmation && (
         <TickerConfirmation
@@ -265,7 +321,7 @@ export default function Home() {
               <img
                 src="/clarividex-logo.png"
                 alt="Clarividex"
-                className="w-32 h-32 sm:w-40 sm:h-40 object-contain"
+                className="w-20 h-20 sm:w-28 sm:h-28 md:w-40 md:h-40 object-contain"
               />
               <div>
                 <h1 className="text-xl sm:text-2xl font-semibold text-slate-800 tracking-tight">
@@ -286,18 +342,45 @@ export default function Home() {
             <nav className="flex items-center gap-4">
               <a
                 href="#how-it-works"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPrediction(null);
+                  setError(null);
+                  setIsLoading(false);
+                  setTimeout(() => {
+                    document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
+                  }, 50);
+                }}
                 className="text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors hidden sm:block"
               >
                 How It Works
               </a>
               <a
                 href="#features"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPrediction(null);
+                  setError(null);
+                  setIsLoading(false);
+                  setTimeout(() => {
+                    document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+                  }, 50);
+                }}
                 className="text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors hidden sm:block"
               >
                 Features
               </a>
               <a
                 href="#sources"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPrediction(null);
+                  setError(null);
+                  setIsLoading(false);
+                  setTimeout(() => {
+                    document.getElementById("sources")?.scrollIntoView({ behavior: "smooth" });
+                  }, 50);
+                }}
                 className="text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors hidden sm:block"
               >
                 Data Sources
@@ -317,17 +400,17 @@ export default function Home() {
             The Clairvoyant Index
           </p>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Get probability-based forecasts backed by real-time data from 12+ sources.
-            Transparent reasoning and quantified predictions.
+            Probability-based forecasts backed by real-time data from 12+ sources,
+            streamed live with production-grade guardrails and transparent reasoning.
           </p>
 
           {/* Stats - muted design */}
-          <div className="flex flex-wrap justify-center gap-8 mt-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8 max-w-md sm:max-w-none mt-8">
             {[
               { value: "12+", label: "Data Sources" },
               { value: "250+", label: "Data Points" },
-              { value: "94%", label: "Data Quality" },
-              { value: "<15s", label: "Analysis Time" },
+              { value: "17/17", label: "Eval Pass Rate" },
+              { value: "Real-Time", label: "SSE Streaming" },
             ].map((stat, index) => (
               <div key={index} className="text-center">
                 <div className="text-2xl font-semibold text-slate-700">{stat.value}</div>
@@ -398,7 +481,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto">
                 {HOW_IT_WORKS.map((item, index) => (
                   <div key={index} className="step-card">
                     <div className="flex items-center gap-3 mb-4">
@@ -462,6 +545,42 @@ export default function Home() {
             </div>
           </section>
 
+          {/* V2 Technology Banner */}
+          <section className="px-4 sm:px-6 lg:px-8 py-10 bg-slate-50">
+            <div className="container-app">
+              <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-4 sm:p-6 md:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="px-3 py-1 bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-full border border-amber-500/30">
+                    V2 Enhancements
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-semibold text-white mb-6">
+                  Production-Grade AI Infrastructure
+                </h3>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { icon: Zap, label: "SSE Streaming", desc: "Real-time prediction pipeline" },
+                    { icon: Shield, label: "Output Guardrails", desc: "PII redaction, advice detection" },
+                    { icon: MessageSquare, label: "RAG Chatbot", desc: "Doc-grounded follow-up Q&A" },
+                    { icon: Layers, label: "Prompt Versioning", desc: "YAML-based, A/B testable" },
+                    { icon: Target, label: "Eval Suite", desc: "17 test cases, 100% pass rate" },
+                    { icon: RefreshCw, label: "Singleton Caching", desc: "Optimized inference pipeline" },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                        <item.icon className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-white">{item.label}</div>
+                        <div className="text-xs text-slate-400">{item.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Features Section */}
           <section id="features" className="section px-4 sm:px-6 lg:px-8 bg-white">
             <div className="container-app">
@@ -477,8 +596,13 @@ export default function Home() {
                 {FEATURES.map((feature, index) => (
                   <div
                     key={index}
-                    className="p-5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors"
+                    className="relative p-5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors"
                   >
+                    {feature.badge && (
+                      <span className="absolute top-3 right-3 px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 text-xs font-medium rounded-full">
+                        {feature.badge}
+                      </span>
+                    )}
                     <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center mb-3">
                       <feature.icon className="w-5 h-5 text-slate-600" />
                     </div>
@@ -527,9 +651,9 @@ export default function Home() {
                 </div>
 
                 {/* Response Comparison */}
-                <div className="grid md:grid-cols-2 gap-6 mb-8">
+                <div className="grid md:grid-cols-2 gap-4 sm:gap-6 mb-8">
                   {/* AI Agent Response */}
-                  <div className="bg-slate-100 rounded-xl p-5 border border-slate-200">
+                  <div className="bg-slate-100 rounded-xl p-3 sm:p-5 border border-slate-200">
                     <div className="flex items-center gap-2 mb-4">
                       <div className="w-8 h-8 rounded-lg bg-slate-300 flex items-center justify-center">
                         <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -560,9 +684,9 @@ export default function Home() {
                   </div>
 
                   {/* Our Response */}
-                  <div className="bg-amber-50 rounded-xl p-5 border border-amber-200">
+                  <div className="bg-amber-50 rounded-xl p-3 sm:p-5 border border-amber-200">
                     <div className="flex items-center gap-2 mb-4">
-                      <img src="/clarividex-logo.png" alt="" className="w-20 h-20 object-contain" />
+                      <img src="/clarividex-logo.png" alt="" className="w-12 h-12 sm:w-20 sm:h-20 object-contain" />
                       <span className="font-semibold text-amber-700 text-xl">Clarividex</span>
                     </div>
                     <div className="bg-white rounded-lg p-4 text-sm text-slate-700">
@@ -608,7 +732,7 @@ export default function Home() {
 
                 {/* Feature Comparison Table */}
                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                  <div className="p-5 bg-slate-800">
+                  <div className="p-3 sm:p-5 bg-slate-800">
                     <h4 className="text-lg font-semibold text-white">
                       Feature Comparison
                     </h4>
@@ -617,51 +741,61 @@ export default function Home() {
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="text-left px-5 py-3 font-medium text-slate-600">Feature</th>
-                          <th className="text-center px-5 py-3 font-medium text-slate-400">AI Agents</th>
-                          <th className="text-center px-5 py-3 font-medium text-amber-600">Clarividex</th>
+                          <th className="text-left px-3 py-2 sm:px-5 sm:py-3 font-medium text-slate-600">Feature</th>
+                          <th className="text-center px-3 py-2 sm:px-5 sm:py-3 font-medium text-slate-400">AI Agents</th>
+                          <th className="text-center px-3 py-2 sm:px-5 sm:py-3 font-medium text-amber-600">Clarividex</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         <tr>
-                          <td className="px-5 py-3 text-slate-700">Probability Score</td>
-                          <td className="px-5 py-3 text-center text-slate-400">&quot;Could go up or down&quot;</td>
-                          <td className="px-5 py-3 text-center font-medium text-amber-600">62% with confidence level</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">Probability Score</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center text-slate-400">&quot;Could go up or down&quot;</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center font-medium text-amber-600">62% with confidence level</td>
                         </tr>
                         <tr>
-                          <td className="px-5 py-3 text-slate-700">Real-time RSI, MACD</td>
-                          <td className="px-5 py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
-                          <td className="px-5 py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">Real-time RSI, MACD</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
                         </tr>
                         <tr>
-                          <td className="px-5 py-3 text-slate-700">Live Options Flow (Put/Call)</td>
-                          <td className="px-5 py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
-                          <td className="px-5 py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">Live Options Flow (Put/Call)</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
                         </tr>
                         <tr>
-                          <td className="px-5 py-3 text-slate-700">VIX & Fear/Greed Index</td>
-                          <td className="px-5 py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
-                          <td className="px-5 py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">VIX & Fear/Greed Index</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
                         </tr>
                         <tr>
-                          <td className="px-5 py-3 text-slate-700">12+ Data Sources</td>
-                          <td className="px-5 py-3 text-center text-slate-400">Random web results</td>
-                          <td className="px-5 py-3 text-center font-medium text-amber-600">SEC, Yahoo, Finviz, etc.</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">12+ Data Sources</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center text-slate-400">Random web results</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center font-medium text-amber-600">SEC, Yahoo, Finviz, etc.</td>
                         </tr>
                         <tr>
-                          <td className="px-5 py-3 text-slate-700">Consistent Methodology</td>
-                          <td className="px-5 py-3 text-center text-slate-400">Varies each time</td>
-                          <td className="px-5 py-3 text-center font-medium text-amber-600">Same weighted scoring</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">Consistent Methodology</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center text-slate-400">Varies each time</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center font-medium text-amber-600">Same weighted scoring</td>
                         </tr>
                         <tr>
-                          <td className="px-5 py-3 text-slate-700">Transparent Reasoning</td>
-                          <td className="px-5 py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
-                          <td className="px-5 py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">Transparent Reasoning</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
                         </tr>
                         <tr>
-                          <td className="px-5 py-3 text-slate-700">Impact News Analysis</td>
-                          <td className="px-5 py-3 text-center text-slate-400">General search</td>
-                          <td className="px-5 py-3 text-center font-medium text-amber-600">Crashes, lawsuits, recalls</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">Impact News Analysis</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center text-slate-400">General search</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center font-medium text-amber-600">Crashes, lawsuits, recalls</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">Real-Time Streaming</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-slate-700">Output Guardrails</td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><XCircle className="w-4 h-4 text-slate-300 mx-auto" /></td>
+                          <td className="px-3 py-2 sm:px-5 sm:py-3 text-center"><CheckCircle className="w-4 h-4 text-amber-500 mx-auto" /></td>
                         </tr>
                       </tbody>
                     </table>
@@ -702,7 +836,7 @@ export default function Home() {
               <img
                 src="/clarividex-logo.png"
                 alt=""
-                className="w-28 h-28 object-contain"
+                className="w-16 h-16 sm:w-28 sm:h-28 object-contain"
               />
               <span className="font-semibold text-slate-700 text-xl">Clarividex</span>
             </div>

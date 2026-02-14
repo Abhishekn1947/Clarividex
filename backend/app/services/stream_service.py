@@ -45,12 +45,26 @@ class PredictionStreamService:
             from backend.app.services.data_aggregator import DataAggregator
             from backend.app.services.market_data import market_data_service
 
+            # Stage 0: Check query relevance
+            from backend.app.services.query_validator import financial_query_validator
+            validation = financial_query_validator.validate_query(request.query)
+
             # Stage 1: Extract ticker
             ticker = request.ticker
             if not ticker:
                 ticker = market_data_service.extract_ticker_from_query(request.query)
             if not ticker:
-                yield _sse_event("error", {"message": "Could not identify a stock ticker in your query."})
+                if not validation.is_valid:
+                    yield _sse_event("error", {
+                        "message": "This doesn't appear to be a financial query and no ticker could be identified.",
+                        "suggestions": validation.suggestions or [
+                            "Will NVDA reach $150 by March 2026?",
+                            "Will Tesla stock go up in the next month?",
+                            "Will Bitcoin hit $100k this year?",
+                        ],
+                    })
+                else:
+                    yield _sse_event("error", {"message": "Could not identify a stock ticker in your query."})
                 return
 
             # Stage 2: Data fetch

@@ -29,6 +29,7 @@ from backend.app.services.news_service import news_service
 from backend.app.services.social_service import social_service
 from backend.app.services.prediction_history import prediction_history
 from backend.app.services.query_validator import financial_query_validator
+from backend.app.services.query_analyzer import query_analyzer
 
 logger = structlog.get_logger()
 
@@ -125,18 +126,11 @@ async def create_prediction(request: PredictionRequest):
     """
     logger.info("Prediction request received", query=request.query)
 
-    # Validate that this is a financial query
+    # Log non-standard queries but allow them through (frontend handles guidance)
     validation = financial_query_validator.validate_query(request.query)
     if not validation.is_valid:
-        logger.warning("Non-financial query rejected", query=request.query[:50])
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "non_financial_query",
-                "message": validation.rejection_reason,
-                "suggestions": validation.suggestions,
-            }
-        )
+        logger.info("Non-standard query proceeding after user confirmation",
+                     query=request.query[:50])
 
     try:
         prediction = await prediction_engine.generate_prediction(request)
@@ -704,15 +698,22 @@ async def chat_about_results(request: dict):
         enhanced_context = f"{chat_system_prompt}\n\nContext:\n{enhanced_context}"
 
     # Import guardrails for chat response filtering
-    from backend.app.guardrails import run_output_guards
+    try:
+        from backend.app.guardrails import run_output_guards
+    except Exception as e:
+        logger.error("Failed to import guardrails", error=str(e))
+        run_output_guards = None
 
     # Try Claude API first if available — reuse singleton client
+    logger.info("Chat: checking Claude availability", has_key=settings.has_anthropic_key, has_client=bool(prediction_engine.claude_client))
     if settings.has_anthropic_key:
         try:
             client = prediction_engine.claude_client
             if not client:
+                logger.warning("Chat: has_anthropic_key is True but claude_client is None")
                 raise HTTPException(status_code=503, detail="Claude API not available")
 
+            logger.info("Chat: calling Claude API")
             response = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=500,
@@ -723,12 +724,15 @@ async def chat_about_results(request: dict):
             )
 
             response_text = response.content[0].text
+            logger.info("Chat: Claude response received", length=len(response_text))
 
             # Apply guardrails to chat response
-            guard_result = run_output_guards(response_text)
+            if run_output_guards:
+                guard_result = run_output_guards(response_text)
+                response_text = guard_result.text
 
             result = {
-                "response": guard_result.text,
+                "response": response_text,
                 "model": "claude"
             }
             if special_data:
@@ -738,13 +742,18 @@ async def chat_about_results(request: dict):
         except HTTPException:
             raise
         except Exception as e:
-            logger.warning("Claude API failed, falling back to Ollama", error=str(e))
+            logger.warning("Claude API failed, falling back to Ollama", error=str(e), error_type=type(e).__name__)
+    else:
+        logger.warning("Chat: Anthropic key not available, skipping Claude")
 
     # Fallback to local Ollama model
+    import os
+    ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    logger.info("Chat: trying Ollama", ollama_host=ollama_host)
     try:
         async with httpx.AsyncClient(timeout=120.0) as ollama_client:
             # First check which models are available
-            models_response = await ollama_client.get("http://localhost:11434/api/tags")
+            models_response = await ollama_client.get(f"{ollama_host}/api/tags")
             available_models = []
             if models_response.status_code == 200:
                 models_data = models_response.json()
@@ -761,7 +770,7 @@ async def chat_about_results(request: dict):
             logger.info("Using Ollama for chat", model=model_to_use)
 
             ollama_response = await ollama_client.post(
-                "http://localhost:11434/api/generate",
+                f"{ollama_host}/api/generate",
                 json={
                     "model": model_to_use,
                     "prompt": f"{enhanced_context}\n\nUser Question: {message}\n\nProvide a helpful, concise answer:",
@@ -1198,6 +1207,45 @@ async def check_herd_warning(
     except Exception as e:
         logger.error("Herd sentiment analysis failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Herd analysis failed: {str(e)}")
+
+
+# =============================================================================
+# Query Analysis Endpoint
+# =============================================================================
+
+
+@router.post("/analyze-query", tags=["Utilities"])
+async def analyze_query(request: dict):
+    """
+    Analyze a query for quality and financial relevance.
+
+    Returns classification (clear/vague/non_financial), quality score,
+    issues, and AI-generated improvement suggestions.
+    """
+    query = request.get("query", "").strip()
+    if not query:
+        return {
+            "category": "non_financial",
+            "can_proceed": False,
+            "quality_score": 0.0,
+            "issues": ["Query is empty"],
+            "suggestions": [
+                "Will NVDA reach $150 by March 2026?",
+                "Will Tesla stock go up in the next month?",
+                "Will Bitcoin hit $100k this year?",
+            ],
+            "message": "Please enter a prediction query about financial markets.",
+        }
+
+    result = await query_analyzer.analyze(query)
+    return {
+        "category": result.category,
+        "can_proceed": result.can_proceed,
+        "quality_score": result.quality_score,
+        "issues": result.issues,
+        "suggestions": result.suggestions,
+        "message": result.message,
+    }
 
 
 # =============================================================================
