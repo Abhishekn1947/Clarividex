@@ -78,7 +78,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           aws lambda update-function-code \
-            --function-name $LAMBDA_FUNCTION \
+            --function-name "$LAMBDA_FUNCTION" \
             --image-uri $ECR_REGISTRY/$APP_NAME:$IMAGE_TAG \
             --region $AWS_REGION \
             --no-cli-pager
@@ -89,7 +89,7 @@ jobs:
       - name: Wait for Lambda update
         run: |
           aws lambda wait function-updated \
-            --function-name $LAMBDA_FUNCTION \
+            --function-name "$LAMBDA_FUNCTION" \
             --region $AWS_REGION
 
       # -----------------------------------------------------------------
@@ -98,7 +98,7 @@ jobs:
       - name: Smoke test
         run: |
           FUNCTION_URL=$(aws lambda get-function-url-config \
-            --function-name $LAMBDA_FUNCTION \
+            --function-name "$LAMBDA_FUNCTION" \
             --region $AWS_REGION \
             --query 'FunctionUrl' \
             --output text)
