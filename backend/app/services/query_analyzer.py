@@ -16,6 +16,7 @@ from typing import Literal
 import structlog
 
 from backend.app.services.query_validator import financial_query_validator
+from backend.app.services.market_config import INDIAN_COMPANY_TO_TICKER, INDIAN_TICKER_TO_COMPANY
 
 logger = structlog.get_logger()
 
@@ -114,7 +115,11 @@ _JUNK_RE = re.compile(r"[^\w\s$%.,?!'\"-]")
 # ---------------------------------------------------------------------------
 
 _TICKER_RE = re.compile(r"\$?[A-Z]{1,5}\b")
-_PRICE_RE = re.compile(r"\$[\d,]+(?:\.\d+)?")
+_PRICE_RE = re.compile(r"[\$\u20b9][\d,]+(?:\.\d+)?")
+_PRICE_RE_USD = re.compile(r"\$[\d,]+(?:\.\d+)?")
+_PRICE_RE_INR = re.compile(r"\u20b9[\d,]+(?:\.\d+)?")
+# Also match bare numbers that look like price targets (e.g. "reach 3000", "hit 1500")
+_BARE_PRICE_RE = re.compile(r"\b(?:reach|hit|touch|cross|above|below)\s+(\d{3,6})\b", re.IGNORECASE)
 _TIMEFRAME_RE = re.compile(
     r"\b(by|before|until|within|this month|next month|this quarter|next quarter|this year|next year"
     r"|january|february|march|april|may|june|july|august|september|october|november|december"
@@ -123,10 +128,16 @@ _TIMEFRAME_RE = re.compile(
     re.IGNORECASE,
 )
 
-HARDCODED_FINANCIAL_SUGGESTIONS = [
+HARDCODED_FINANCIAL_SUGGESTIONS_US = [
     "Will NVDA reach $150 by March 2026?",
     "Will Tesla stock go up in the next month?",
     "Will Bitcoin hit $100k this year?",
+]
+
+HARDCODED_FINANCIAL_SUGGESTIONS_IN = [
+    "Will Reliance reach \u20b93000 by March 2026?",
+    "Will TCS stock go up in the next month?",
+    "Will Infosys beat earnings next quarter?",
 ]
 
 
@@ -140,8 +151,10 @@ class QueryAnalyzer:
     # Public API
     # ------------------------------------------------------------------
 
-    async def analyze(self, query: str) -> QueryAnalysisResult:
+    async def analyze(self, query: str, market: str = "US") -> QueryAnalysisResult:
         """Analyze *query* and return classification + suggestions."""
+
+        hardcoded = HARDCODED_FINANCIAL_SUGGESTIONS_IN if market == "IN" else HARDCODED_FINANCIAL_SUGGESTIONS_US
 
         if not query or not query.strip():
             return QueryAnalysisResult(
@@ -149,17 +162,17 @@ class QueryAnalyzer:
                 can_proceed=False,
                 quality_score=0.0,
                 issues=["Query is empty"],
-                suggestions=HARDCODED_FINANCIAL_SUGGESTIONS,
+                suggestions=hardcoded,
                 message="Please enter a prediction query about financial markets.",
             )
 
         # --- Clean the query first ------------------------------------
-        cleaned = self._clean_query(query)
+        cleaned = self._clean_query(query, market=market)
         self.logger.debug("Query cleaned", original=query, cleaned=cleaned)
 
         # --- Stage 1: rule-based ----------------------------------------
         validation = financial_query_validator.validate_query(cleaned)
-        quality_score = self._compute_quality_score(cleaned)
+        quality_score = self._compute_quality_score(cleaned, market=market)
 
         if validation.is_valid and quality_score >= 0.7:
             return QueryAnalysisResult(
@@ -172,7 +185,7 @@ class QueryAnalyzer:
 
         if validation.is_valid:
             category: Literal["vague", "non_financial"] = "vague"
-            issues = self._identify_issues(cleaned)
+            issues = self._identify_issues(cleaned, market=market)
             message = "Your query could be more specific for better predictions."
         else:
             category = "non_financial"
@@ -180,7 +193,7 @@ class QueryAnalyzer:
             message = "This doesn't look like a financial prediction query."
 
         # --- Stage 2: AI suggestions (only for vague / non_financial) ---
-        suggestions = await self._generate_suggestions(cleaned, category)
+        suggestions = await self._generate_suggestions(cleaned, category, market=market)
 
         return QueryAnalysisResult(
             category=category,
@@ -196,7 +209,7 @@ class QueryAnalyzer:
     # Query cleaning
     # ------------------------------------------------------------------
 
-    def _clean_query(self, query: str) -> str:
+    def _clean_query(self, query: str, market: str = "US") -> str:
         """Fix spelling, strip gibberish, normalize the query."""
         text = query.strip()
 
@@ -249,27 +262,53 @@ class QueryAnalyzer:
     # Internals
     # ------------------------------------------------------------------
 
-    def _compute_quality_score(self, query: str) -> float:
+    def _compute_quality_score(self, query: str, market: str = "US") -> float:
         score = 0.0
-        if _TICKER_RE.search(query):
+        query_lower = query.lower()
+
+        # Check for ticker or known company name
+        has_ticker = bool(_TICKER_RE.search(query))
+        if market == "IN":
+            has_ticker = has_ticker or any(c in query_lower for c in INDIAN_COMPANY_TO_TICKER)
+        else:
+            has_ticker = has_ticker or any(c in query_lower for c in COMPANY_TICKER_MAP)
+        if has_ticker:
             score += 0.3
-        if _PRICE_RE.search(query):
+
+        # Check for price target (₹ or $ or bare number after "reach/hit")
+        if _PRICE_RE.search(query) or _BARE_PRICE_RE.search(query):
             score += 0.2
         if _TIMEFRAME_RE.search(query):
             score += 0.2
-        query_lower = query.lower()
         if any(kw in query_lower for kw in financial_query_validator.FINANCIAL_KEYWORDS):
             score += 0.2
         if len(query.strip()) > 15:
             score += 0.1
         return min(score, 1.0)
 
-    def _identify_issues(self, query: str) -> list[str]:
+    def _identify_issues(self, query: str, market: str = "US") -> list[str]:
         issues: list[str] = []
-        if not _TICKER_RE.search(query):
-            issues.append("No ticker symbol detected (e.g. AAPL, NVDA)")
-        if not _PRICE_RE.search(query):
-            issues.append("No price target specified (e.g. $150)")
+        query_lower = query.lower()
+
+        # Check for ticker or known company name
+        has_ticker = bool(_TICKER_RE.search(query))
+        if market == "IN":
+            has_ticker = has_ticker or any(c in query_lower for c in INDIAN_COMPANY_TO_TICKER)
+        else:
+            has_ticker = has_ticker or any(c in query_lower for c in COMPANY_TICKER_MAP)
+
+        if not has_ticker:
+            if market == "IN":
+                issues.append("No ticker or company detected (e.g. RELIANCE, TCS, Infosys)")
+            else:
+                issues.append("No ticker symbol detected (e.g. AAPL, NVDA)")
+
+        if not _PRICE_RE.search(query) and not _BARE_PRICE_RE.search(query):
+            if market == "IN":
+                issues.append("No price target specified (e.g. \u20b93000)")
+            else:
+                issues.append("No price target specified (e.g. $150)")
+
         if not _TIMEFRAME_RE.search(query):
             issues.append("No timeframe mentioned (e.g. 'by March 2026')")
         return issues
@@ -278,9 +317,24 @@ class QueryAnalyzer:
     # Subject / ticker extraction for contextual suggestions
     # ------------------------------------------------------------------
 
-    def _extract_subject_and_ticker(self, query: str) -> tuple[str, str | None]:
+    def _extract_subject_and_ticker(self, query: str, market: str = "US") -> tuple[str, str | None]:
         """Extract the company/asset name and its ticker from the query."""
         query_lower = query.lower()
+
+        # For India market, check Indian companies first
+        if market == "IN":
+            for company in sorted(INDIAN_COMPANY_TO_TICKER.keys(), key=len, reverse=True):
+                if company in query_lower:
+                    ticker = INDIAN_COMPANY_TO_TICKER[company]
+                    display = INDIAN_TICKER_TO_COMPANY.get(ticker, company.title())
+                    return display, ticker
+            # Also check for ₹ prefix
+            ticker_match = re.search(r"\u20b9([A-Z]{1,10})\b", query)
+            if ticker_match:
+                raw = ticker_match.group(1)
+                ticker = f"{raw}.NS" if not raw.endswith(".NS") else raw
+                display = INDIAN_TICKER_TO_COMPANY.get(ticker, raw)
+                return display, ticker
 
         # Check for explicit ticker ($TSLA or standalone TSLA)
         ticker_match = re.search(r"\$([A-Z]{1,5})\b", query)
@@ -293,7 +347,6 @@ class QueryAnalyzer:
             return ticker, ticker
 
         # Check for company names in query
-        # Sort by length descending to match longer names first (e.g. "bank of america" before "bank")
         for company in sorted(COMPANY_TICKER_MAP.keys(), key=len, reverse=True):
             if company in query_lower:
                 return company.title(), COMPANY_TICKER_MAP[company]
@@ -305,14 +358,14 @@ class QueryAnalyzer:
     # ------------------------------------------------------------------
 
     async def _generate_suggestions(
-        self, query: str, category: Literal["vague", "non_financial"]
+        self, query: str, category: Literal["vague", "non_financial"], market: str = "US"
     ) -> list[str]:
         """Use contextual fallback directly (skip Gemini to save API costs).
 
         The contextual fallback already produces good suggestions based on the
         user's query, extracting tickers and timeframes from their input.
         """
-        return self._contextual_fallback_suggestions(query, category)
+        return self._contextual_fallback_suggestions(query, category, market=market)
 
     async def _call_gemini_suggestions(
         self, query: str, category: Literal["vague", "non_financial"]
@@ -361,49 +414,56 @@ class QueryAnalyzer:
         raise ValueError("Unexpected Gemini response format")
 
     def _contextual_fallback_suggestions(
-        self, query: str, category: Literal["vague", "non_financial"]
+        self, query: str, category: Literal["vague", "non_financial"], market: str = "US"
     ) -> list[str]:
         """Build suggestions based on what the user actually asked."""
+        hardcoded = HARDCODED_FINANCIAL_SUGGESTIONS_IN if market == "IN" else HARDCODED_FINANCIAL_SUGGESTIONS_US
+
         if category == "non_financial":
-            return list(HARDCODED_FINANCIAL_SUGGESTIONS)
+            return list(hardcoded)
 
-        subject, ticker = self._extract_subject_and_ticker(query)
+        subject, ticker = self._extract_subject_and_ticker(query, market=market)
 
-        has_ticker = bool(_TICKER_RE.search(query))
-        has_price = bool(_PRICE_RE.search(query))
+        has_ticker = bool(ticker)
+        has_price = bool(_PRICE_RE.search(query) or _BARE_PRICE_RE.search(query))
         has_timeframe = bool(_TIMEFRAME_RE.search(query))
 
         # Extract the timeframe the user used, if any
         tf_match = _TIMEFRAME_RE.search(query)
         user_timeframe = tf_match.group(0) if tf_match else None
 
-        # Determine labels
-        ticker_str = ticker or "TSLA"
-        company_str = subject or "Tesla"
+        # Market-specific defaults
+        if market == "IN":
+            ticker_str = ticker or "RELIANCE.NS"
+            company_str = subject or "Reliance"
+            currency = "\u20b9"
+            default_prices = ("3000", "2500", "3500")
+        else:
+            ticker_str = ticker or "TSLA"
+            company_str = subject or "Tesla"
+            currency = "$"
+            default_prices = ("250", "200", "300")
+
         tf = user_timeframe or "next 3 months"
 
         suggestions: list[str] = []
 
         if not has_ticker and not has_price:
-            # Missing ticker + price — most common case
-            suggestions.append(f"Will {ticker_str} reach $250 by {tf}?")
-            suggestions.append(f"Will {ticker_str} stock go up in the {tf}?")
+            suggestions.append(f"Will {company_str} reach {currency}{default_prices[0]} by {tf}?")
+            suggestions.append(f"Will {company_str} stock go up in the {tf}?")
             if has_timeframe:
-                suggestions.append(f"Will {company_str} ({ticker_str}) hit $300 {user_timeframe}?")
+                suggestions.append(f"Will {company_str} hit {currency}{default_prices[2]} {user_timeframe}?")
             else:
-                suggestions.append(f"Will {company_str} ({ticker_str}) rise by end of this quarter?")
+                suggestions.append(f"Will {company_str} rise by end of this quarter?")
         elif not has_price:
-            # Has ticker but no price target
-            suggestions.append(f"Will {ticker_str} reach $250 by {tf}?")
-            suggestions.append(f"Will {ticker_str} go above $200 {tf}?")
+            suggestions.append(f"Will {company_str} reach {currency}{default_prices[0]} by {tf}?")
+            suggestions.append(f"Will {company_str} go above {currency}{default_prices[1]} {tf}?")
         elif not has_timeframe:
-            # Has price but no timeframe
-            suggestions.append(f"Will {ticker_str} hit its target by end of this month?")
-            suggestions.append(f"Will {ticker_str} reach that price within the next 3 months?")
+            suggestions.append(f"Will {company_str} hit its target by end of this month?")
+            suggestions.append(f"Will {company_str} reach that price within the next 3 months?")
         else:
-            # Has everything but still scored low (e.g. ambiguous direction)
-            suggestions.append(f"Will {ticker_str} reach $250 by {tf}?")
-            suggestions.append(f"Will {ticker_str} go above $200 {tf}?")
+            suggestions.append(f"Will {company_str} reach {currency}{default_prices[0]} by {tf}?")
+            suggestions.append(f"Will {company_str} go above {currency}{default_prices[1]} {tf}?")
 
         return suggestions[:3]
 

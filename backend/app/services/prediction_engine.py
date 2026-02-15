@@ -72,14 +72,20 @@ class PredictionEngine:
     _FALLBACK_SYSTEM_PROMPT = """You are an elite quantitative financial analyst AI with expertise in technical analysis, sentiment analysis, options flow, and market dynamics. Analyze ALL provided market data comprehensively to generate an accurate probability assessment.
 
 CRITICAL CONSTRAINT: You ONLY analyze financial market instruments including:
-- Stocks (AAPL, NVDA, TSLA, etc.)
+- US Stocks (AAPL, NVDA, TSLA, etc.)
+- Indian Stocks (RELIANCE.NS, TCS.NS, INFY.NS, HDFCBANK.NS, etc. on NSE/BSE)
 - Cryptocurrencies (Bitcoin, Ethereum, etc.)
 - Forex pairs (EUR/USD, GBP/JPY, etc.)
 - Commodities (Gold, Oil, Silver, etc.)
-- Indices (S&P 500, Nasdaq, Dow Jones, etc.)
-- ETFs (SPY, QQQ, etc.)
+- Indices (S&P 500, Nasdaq, Dow Jones, Nifty 50, Sensex, Bank Nifty, etc.)
+- ETFs (SPY, QQQ, NIFTYBEES.NS, etc.)
 - Futures (ES, NQ, etc.)
 - Bonds and Treasuries
+
+CURRENCY RULE: Always use the correct currency symbol for the market being analyzed.
+- US stocks: Use $ (USD) for all prices — e.g., "$150.00"
+- Indian stocks (.NS/.BO tickers): Use ₹ (INR) for all prices — e.g., "₹3000.00"
+- NEVER mix currencies. If analyzing an Indian stock, ALL monetary values must use ₹.
 
 If a query is NOT about financial markets, respond ONLY with this JSON:
 {"error": "non_financial_query", "message": "I can only analyze financial market predictions. Please ask about stocks, crypto, forex, commodities, or other financial instruments."}
@@ -200,16 +206,19 @@ OUTPUT FORMAT (respond with valid JSON only):
         """
         self.logger.info("Generating prediction", query=request.query[:50])
 
+        market = request.market
+
         # Extract ticker
         ticker = request.ticker
         if not ticker:
             from backend.app.services.market_data import market_data_service
-            ticker = market_data_service.extract_ticker_from_query(request.query)
+            ticker = market_data_service.extract_ticker_from_query(request.query, market=market)
 
         if not ticker:
+            example_tickers = "RELIANCE, TCS, INFY" if market == "IN" else "AAPL, TSLA, NVDA"
             raise ValueError(
                 "Could not identify a stock ticker in your query. "
-                "Please include a ticker symbol (e.g., AAPL) or company name (e.g., Apple)."
+                f"Please include a ticker symbol (e.g., {example_tickers}) or company name."
             )
 
         # Check cache before expensive data aggregation
@@ -225,6 +234,7 @@ OUTPUT FORMAT (respond with valid JSON only):
             include_technicals=request.include_technicals,
             include_news=request.include_news,
             include_social=request.include_sentiment,
+            market=market,
         )
 
         if not data.quote:
@@ -256,15 +266,17 @@ OUTPUT FORMAT (respond with valid JSON only):
         """
         self.logger.info("Generating prediction with pre-aggregated data", query=request.query[:50])
 
+        market = request.market
         if not ticker:
             ticker = request.ticker
         if not ticker:
             from backend.app.services.market_data import market_data_service
-            ticker = market_data_service.extract_ticker_from_query(request.query)
+            ticker = market_data_service.extract_ticker_from_query(request.query, market=market)
         if not ticker:
+            example_tickers = "RELIANCE, TCS, INFY" if market == "IN" else "AAPL, TSLA, NVDA"
             raise ValueError(
                 "Could not identify a stock ticker in your query. "
-                "Please include a ticker symbol (e.g., AAPL) or company name (e.g., Apple)."
+                f"Please include a ticker symbol (e.g., {example_tickers}) or company name."
             )
 
         if not data.quote:
@@ -302,6 +314,7 @@ OUTPUT FORMAT (respond with valid JSON only):
             target_price=target_price,
             target_date=target_date,
             ticker=ticker,
+            market=request.market,
         )
 
         # Build response
@@ -332,6 +345,7 @@ OUTPUT FORMAT (respond with valid JSON only):
         target_price: Optional[float],
         target_date: Optional[datetime],
         ticker: Optional[str] = None,
+        market: str = "US",
     ) -> tuple[dict, str]:
         """
         Generate analysis using the best available AI model.
@@ -344,7 +358,7 @@ OUTPUT FORMAT (respond with valid JSON only):
         # Try Gemini first (with retry/backoff for rate limits)
         if self.gemini_available and self.gemini_client:
             try:
-                analysis = await self._call_gemini_with_retry(query, context, target_price, target_date)
+                analysis = await self._call_gemini_with_retry(query, context, target_price, target_date, market=market)
                 if analysis:
                     return analysis, "gemini"
             except Exception as e:
@@ -357,7 +371,7 @@ OUTPUT FORMAT (respond with valid JSON only):
 
         # Fallback to rule-based analysis
         self.logger.info("Using rule-based analysis (no AI available)")
-        analysis = self._generate_rule_based_analysis(data, target_price, target_date, ticker=ticker)
+        analysis = self._generate_rule_based_analysis(data, target_price, target_date, ticker=ticker, market=market)
         return analysis, "rule_based"
 
     async def _call_gemini(
@@ -366,9 +380,10 @@ OUTPUT FORMAT (respond with valid JSON only):
         context: str,
         target_price: Optional[float],
         target_date: Optional[datetime],
+        market: str = "US",
     ) -> Optional[dict]:
         """Call Gemini API for analysis."""
-        prompt = self._build_prompt(query, context, target_price, target_date)
+        prompt = self._build_prompt(query, context, target_price, target_date, market=market)
 
         self.logger.debug("Calling Gemini API")
 
@@ -391,6 +406,7 @@ OUTPUT FORMAT (respond with valid JSON only):
         context: str,
         target_price: Optional[float],
         target_date: Optional[datetime],
+        market: str = "US",
     ) -> Optional[dict]:
         """Call Gemini API with retry/backoff on rate limit errors.
 
@@ -408,7 +424,7 @@ OUTPUT FORMAT (respond with valid JSON only):
                     self.logger.info("Trimmed context for retry", attempt=attempt,
                                      original_len=len(context), trimmed_len=len(current_context))
 
-                return await self._call_gemini(query, current_context, target_price, target_date)
+                return await self._call_gemini(query, current_context, target_price, target_date, market=market)
 
             except Exception as e:
                 error_msg = str(e).lower()
@@ -479,16 +495,23 @@ OUTPUT FORMAT (respond with valid JSON only):
         context: str,
         target_price: Optional[float],
         target_date: Optional[datetime],
+        market: str = "US",
     ) -> str:
         """Build optimized prompt for AI analysis."""
+        from backend.app.services.market_config import get_market_config
+        market_config = get_market_config(market)
+        currency_symbol = market_config["currency_symbol"]
+
         parts = [
             "PREDICTION REQUEST",
             "=" * 50,
             f"Question: {query}",
+            f"Market: {'India (NSE/BSE)' if market == 'IN' else 'United States'}",
+            f"Currency: {market_config['currency_code']} ({currency_symbol})",
         ]
 
         if target_price:
-            parts.append(f"Target Price: ${target_price:.2f}")
+            parts.append(f"Target Price: {currency_symbol}{target_price:.2f}")
         if target_date:
             parts.append(f"Target Date: {target_date.strftime('%Y-%m-%d')}")
             days = (target_date - datetime.now()).days
@@ -505,6 +528,13 @@ OUTPUT FORMAT (respond with valid JSON only):
             "Analyze ALL the data above and respond with a JSON object.",
             "Be specific - cite exact numbers from the data for each factor.",
         ])
+
+        if market == "IN":
+            parts.append(
+                "CRITICAL: This is an INDIAN stock. All monetary values in your response "
+                "MUST use ₹ (INR), not $. Write '₹1419.60' not '$1419.60'. "
+                "Never use $ for Indian stock prices."
+            )
 
         return "\n".join(parts)
 
@@ -546,6 +576,7 @@ OUTPUT FORMAT (respond with valid JSON only):
         target_price: Optional[float],
         target_date: Optional[datetime],
         ticker: Optional[str] = None,
+        market: str = "US",
     ) -> dict:
         """
         Generate comprehensive analysis using rule-based logic with all data sources.
@@ -560,6 +591,10 @@ OUTPUT FORMAT (respond with valid JSON only):
         - Social sentiment (8%)
         - Historical patterns (10%) - NEW
         """
+        from backend.app.services.market_config import get_market_config
+        cs = get_market_config(market)["currency_symbol"]
+        vix_label = "India VIX" if market == "IN" else "VIX (Volatility Index)"
+
         # Initialize decision trail builder for transparency
         trail_builder = create_decision_trail_builder()
 
@@ -622,13 +657,13 @@ OUTPUT FORMAT (respond with valid JSON only):
                 price = data.quote.current_price
                 if price > data.technicals.sma_20 > data.technicals.sma_50:
                     bullish_factors.append({
-                        "description": f"Price ${price:.2f} above rising moving averages (SMA20: ${data.technicals.sma_20:.2f}, SMA50: ${data.technicals.sma_50:.2f})",
+                        "description": f"Price {cs}{price:.2f} above rising moving averages (SMA20: {cs}{data.technicals.sma_20:.2f}, SMA50: {cs}{data.technicals.sma_50:.2f})",
                         "weight": 0.7,
                         "source": "Technical Analysis (Moving Averages)",
                     })
                 elif price < data.technicals.sma_20 < data.technicals.sma_50:
                     bearish_factors.append({
-                        "description": f"Price ${price:.2f} below declining moving averages (SMA20: ${data.technicals.sma_20:.2f}, SMA50: ${data.technicals.sma_50:.2f})",
+                        "description": f"Price {cs}{price:.2f} below declining moving averages (SMA20: {cs}{data.technicals.sma_20:.2f}, SMA50: {cs}{data.technicals.sma_50:.2f})",
                         "weight": 0.7,
                         "source": "Technical Analysis (Moving Averages)",
                     })
@@ -762,21 +797,21 @@ OUTPUT FORMAT (respond with valid JSON only):
                 bullish_factors.append({
                     "description": f"VIX at {vix:.1f} indicates calm markets - low volatility environment favorable for stocks",
                     "weight": 0.5,
-                    "source": "VIX (Volatility Index)",
+                    "source": vix_label,
                 })
             elif vix > 30:
                 # High VIX can be contrarian bullish or bearish depending on trend
                 bearish_factors.append({
                     "description": f"VIX at {vix:.1f} indicates elevated fear - market uncertainty high",
                     "weight": 0.6,
-                    "source": "VIX (Volatility Index)",
+                    "source": vix_label,
                 })
                 market_score -= 0.3
             elif vix > 25:
                 bearish_factors.append({
                     "description": f"VIX at {vix:.1f} above average - indicates market concern",
                     "weight": 0.4,
-                    "source": "VIX (Volatility Index)",
+                    "source": vix_label,
                 })
                 market_score -= 0.15
             market_factors += 1
@@ -843,7 +878,7 @@ OUTPUT FORMAT (respond with valid JSON only):
                 analyst_score = 0
                 if upside > 20:
                     bullish_factors.append({
-                        "description": f"Analyst consensus target ${target:.2f} implies {upside:.1f}% upside from current ${current:.2f}",
+                        "description": f"Analyst consensus target {cs}{target:.2f} implies {upside:.1f}% upside from current {cs}{current:.2f}",
                         "weight": 0.85,
                         "source": "Analyst Price Targets (Finviz)",
                     })
@@ -851,7 +886,7 @@ OUTPUT FORMAT (respond with valid JSON only):
                     signals.append(("analyst", 0.7, 0.13))
                 elif upside > 10:
                     bullish_factors.append({
-                        "description": f"Analyst target ${target:.2f} implies {upside:.1f}% upside",
+                        "description": f"Analyst target {cs}{target:.2f} implies {upside:.1f}% upside",
                         "weight": 0.6,
                         "source": "Analyst Price Targets (Finviz)",
                     })
@@ -859,7 +894,7 @@ OUTPUT FORMAT (respond with valid JSON only):
                     signals.append(("analyst", 0.4, 0.13))
                 elif upside < -10:
                     bearish_factors.append({
-                        "description": f"Analyst target ${target:.2f} implies {upside:.1f}% downside - stock may be overvalued",
+                        "description": f"Analyst target {cs}{target:.2f} implies {upside:.1f}% downside - stock may be overvalued",
                         "weight": 0.7,
                         "source": "Analyst Price Targets (Finviz)",
                     })
@@ -871,7 +906,7 @@ OUTPUT FORMAT (respond with valid JSON only):
                     category="analyst",
                     source="Analyst Consensus (Finviz)",
                     data_point="Price Target",
-                    raw_value=f"${target:.2f} ({upside:+.1f}%)",
+                    raw_value=f"{cs}{target:.2f} ({upside:+.1f}%)",
                     signal="bullish" if upside > 10 else "bearish" if upside < -10 else "neutral",
                     score=analyst_score,
                     reasoning=f"Analyst target implies {upside:+.1f}% from current price",
@@ -1255,6 +1290,7 @@ OUTPUT FORMAT (respond with valid JSON only):
         data: AggregatedData,
         target_price: Optional[float],
         target_date: Optional[datetime],
+        market: str = "US",
     ) -> "DecisionTrail":
         """
         Build a decision trail from raw data for transparency.
@@ -1262,6 +1298,10 @@ OUTPUT FORMAT (respond with valid JSON only):
         This is used when AI models don't provide their own decision trail,
         ensuring users always see how factors contributed to the prediction.
         """
+        from backend.app.services.market_config import get_market_config
+        cs = get_market_config(market)["currency_symbol"]
+        vix_label = "India VIX" if market == "IN" else "VIX Index"
+
         trail_builder = create_decision_trail_builder()
 
         # 1. Technical Analysis (20% weight)
@@ -1305,7 +1345,7 @@ OUTPUT FORMAT (respond with valid JSON only):
                     category="technical",
                     source="Moving Averages",
                     data_point="SMA20 vs SMA50",
-                    raw_value=f"SMA20: ${sma20:.2f}, SMA50: ${sma50:.2f}",
+                    raw_value=f"SMA20: {cs}{sma20:.2f}, SMA50: {cs}{sma50:.2f}",
                     signal=signal,
                     score=score,
                     reasoning=f"Short-term MA {'above' if sma20 > sma50 else 'below'} long-term MA - {'bullish trend' if sma20 > sma50 else 'bearish trend'}",
@@ -1349,7 +1389,7 @@ OUTPUT FORMAT (respond with valid JSON only):
             score = (20 - vix) / 20  # Lower VIX = more bullish
             trail_builder.add_factor(
                 category="market",
-                source="VIX Index",
+                source=vix_label,
                 data_point="Volatility Index",
                 raw_value=f"{vix:.1f}",
                 signal=signal,
@@ -1595,7 +1635,7 @@ OUTPUT FORMAT (respond with valid JSON only):
         """Build the final prediction response."""
         # Always build decision trail for transparency (even if AI model was used)
         if not analysis.get("decision_trail"):
-            decision_trail = self._build_decision_trail_from_data(data, target_price, target_date)
+            decision_trail = self._build_decision_trail_from_data(data, target_price, target_date, market=request.market)
             analysis["decision_trail"] = decision_trail
 
         # Map confidence
@@ -1814,7 +1854,7 @@ OUTPUT FORMAT (respond with valid JSON only):
         """Determine prediction type from query."""
         query_lower = query.lower()
 
-        if target_price or "reach" in query_lower or "hit" in query_lower or "$" in query:
+        if target_price or "reach" in query_lower or "hit" in query_lower or "$" in query or "₹" in query:
             return PredictionType.PRICE_TARGET
         if "earnings" in query_lower or "beat" in query_lower or "miss" in query_lower:
             return PredictionType.EARNINGS
@@ -1827,7 +1867,8 @@ OUTPUT FORMAT (respond with valid JSON only):
         """Extract target price from query."""
         patterns = [
             r"\$(\d+(?:\.\d{1,2})?)",
-            r"(\d+(?:\.\d{1,2})?)\s*dollars?",
+            r"₹\s*(\d+(?:\.\d{1,2})?)",
+            r"(\d+(?:\.\d{1,2})?)\s*(?:dollars?|rupees?)",
             r"reach\s+(\d+(?:\.\d{1,2})?)",
             r"hit\s+(\d+(?:\.\d{1,2})?)",
             r"to\s+(\d+(?:\.\d{1,2})?)",

@@ -21,6 +21,7 @@ import structlog
 from backend.app.config import settings
 from backend.app.models.schemas import NewsArticle
 from backend.app.services.sentiment_service import sentiment_service
+from backend.app.services.market_config import get_market_config, INDIAN_INDUSTRY_KEYWORDS
 
 logger = structlog.get_logger()
 
@@ -62,6 +63,7 @@ class NewsService:
         ticker: str,
         company_name: Optional[str] = None,
         limit: int = 50,
+        market: str = "US",
     ) -> list[NewsArticle]:
         """
         Get news articles for a stock ticker from multiple sources.
@@ -75,11 +77,12 @@ class NewsService:
             ticker: Stock ticker symbol
             company_name: Company name for better search results
             limit: Maximum number of articles to return
+            market: Market context ("US" or "IN")
 
         Returns:
             List of NewsArticle objects sorted by date
         """
-        cache_key = f"news_{ticker}"
+        cache_key = f"news_{ticker}_{market}"
 
         # Check cache
         if cache_key in _news_cache:
@@ -90,9 +93,9 @@ class NewsService:
 
         # Fetch from multiple sources concurrently
         tasks = [
-            self._fetch_google_news(ticker, company_name),
+            self._fetch_google_news(ticker, company_name, market=market),
             self._fetch_finnhub_news(ticker),
-            self._fetch_broader_news(ticker, company_name),  # New: broader impact news
+            self._fetch_broader_news(ticker, company_name, market=market),
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -139,6 +142,7 @@ class NewsService:
         self,
         ticker: str,
         company_name: Optional[str] = None,
+        market: str = "US",
     ) -> list[NewsArticle]:
         """
         Fetch news from Google News RSS.
@@ -146,18 +150,24 @@ class NewsService:
         Args:
             ticker: Stock ticker symbol
             company_name: Company name for search
+            market: Market context for locale
 
         Returns:
             List of news articles
         """
         try:
+            market_config = get_market_config(market)
+            news_locale = market_config["news_locale"]
+
             # Build search query
-            search_terms = [f"{ticker} stock"]
+            # For Indian stocks, strip .NS suffix from search
+            search_ticker = ticker.replace(".NS", "").replace(".BO", "") if market == "IN" else ticker
+            search_terms = [f"{search_ticker} stock"]
             if company_name:
                 search_terms.append(company_name)
 
             query = " OR ".join(search_terms)
-            url = f"{settings.google_news_rss_url}?q={quote(query)}&hl=en-US&gl=US&ceid=US:en"
+            url = f"{settings.google_news_rss_url}?q={quote(query)}&{news_locale}"
 
             self.logger.debug("Fetching Google News", url=url)
 
@@ -268,6 +278,7 @@ class NewsService:
         self,
         ticker: str,
         company_name: Optional[str] = None,
+        market: str = "US",
     ) -> list[NewsArticle]:
         """
         Fetch broader news that could impact the stock.
@@ -280,22 +291,31 @@ class NewsService:
         Args:
             ticker: Stock ticker symbol
             company_name: Company name
+            market: Market context for locale
 
         Returns:
             List of news articles with impact relevance
         """
         try:
+            market_config = get_market_config(market)
+            news_locale = market_config["news_locale"]
             search_terms = []
 
             # Add industry-specific keywords if available
             ticker_upper = ticker.upper()
-            if ticker_upper in self.INDUSTRY_KEYWORDS:
-                keywords = self.INDUSTRY_KEYWORDS[ticker_upper]
+            # Check Indian industry keywords for IN market
+            industry_keywords = self.INDUSTRY_KEYWORDS
+            if market == "IN":
+                industry_keywords = {**self.INDUSTRY_KEYWORDS, **INDIAN_INDUSTRY_KEYWORDS}
+
+            if ticker_upper in industry_keywords:
+                keywords = industry_keywords[ticker_upper]
                 for keyword in keywords[:3]:  # Top 3 keywords
                     if company_name:
                         search_terms.append(f"{company_name} {keyword}")
                     else:
-                        search_terms.append(f"{ticker} {keyword}")
+                        search_ticker = ticker.replace(".NS", "").replace(".BO", "") if market == "IN" else ticker
+                        search_terms.append(f"{search_ticker} {keyword}")
 
             # Add generic impact news for the company
             if company_name:
@@ -314,7 +334,7 @@ class NewsService:
             articles = []
             for term in search_terms[:8]:  # Limit to 8 searches
                 query = quote(term)
-                url = f"{settings.google_news_rss_url}?q={query}&hl=en-US&gl=US&ceid=US:en"
+                url = f"{settings.google_news_rss_url}?q={query}&{news_locale}"
 
                 try:
                     response = await self.http_client.get(url)
@@ -371,23 +391,30 @@ class NewsService:
             self.logger.error("Broader news fetch failed", error=str(e))
             return []
 
-    async def get_general_market_news(self, limit: int = 10) -> list[NewsArticle]:
+    async def get_general_market_news(self, limit: int = 10, market: str = "US") -> list[NewsArticle]:
         """
         Get general market/financial news.
 
         Args:
             limit: Maximum articles to return
+            market: Market context for locale
 
         Returns:
             List of market news articles
         """
-        cache_key = "news_market_general"
+        cache_key = f"news_market_general_{market}"
 
         if cache_key in _news_cache:
             return _news_cache[cache_key][:limit]
 
-        query = "stock market OR S&P 500 OR Federal Reserve OR inflation"
-        url = f"{settings.google_news_rss_url}?q={quote(query)}&hl=en-US&gl=US&ceid=US:en"
+        market_config = get_market_config(market)
+        news_locale = market_config["news_locale"]
+
+        if market == "IN":
+            query = "Indian stock market OR Nifty 50 OR Sensex OR RBI OR BSE NSE"
+        else:
+            query = "stock market OR S&P 500 OR Federal Reserve OR inflation"
+        url = f"{settings.google_news_rss_url}?q={quote(query)}&{news_locale}"
 
         try:
             response = await self.http_client.get(url)

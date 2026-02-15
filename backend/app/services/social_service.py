@@ -32,6 +32,7 @@ except ImportError:
 from backend.app.config import settings
 from backend.app.models.schemas import SocialSentiment
 from backend.app.services.sentiment_service import sentiment_service
+from backend.app.services.market_config import get_market_config
 
 logger = structlog.get_logger()
 
@@ -79,6 +80,7 @@ class SocialMediaService:
         self,
         ticker: str,
         company_name: Optional[str] = None,
+        market: str = "US",
     ) -> list[SocialSentiment]:
         """
         Get social sentiment from multiple platforms.
@@ -86,22 +88,28 @@ class SocialMediaService:
         Args:
             ticker: Stock ticker symbol
             company_name: Company name for search
+            market: Market context ("US" or "IN")
 
         Returns:
             List of SocialSentiment objects from each platform
         """
-        cache_key = f"social_{ticker}"
+        cache_key = f"social_{ticker}_{market}"
 
         if cache_key in _social_cache:
             self.logger.debug("Social cache hit", ticker=ticker)
             return _social_cache[cache_key]
 
-        self.logger.info("Fetching social sentiment", ticker=ticker)
+        self.logger.info("Fetching social sentiment", ticker=ticker, market=market)
+
+        # Use market-specific subreddits
+        market_config = get_market_config(market)
+        subreddits = market_config["subreddits"]
 
         # Fetch from multiple sources concurrently
+        # For Indian stocks, StockTwits may have limited coverage but still try
         tasks = [
             self._fetch_stocktwits(ticker),
-            self._fetch_reddit_sentiment(ticker, company_name),
+            self._fetch_reddit_sentiment(ticker, company_name, subreddits=subreddits),
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -199,6 +207,7 @@ class SocialMediaService:
         self,
         ticker: str,
         company_name: Optional[str] = None,
+        subreddits: list[str] = None,
     ) -> Optional[SocialSentiment]:
         """
         Fetch sentiment from Reddit.
@@ -206,6 +215,7 @@ class SocialMediaService:
         Args:
             ticker: Stock ticker symbol
             company_name: Company name for search
+            subreddits: List of subreddits to search
 
         Returns:
             SocialSentiment object or None
@@ -213,9 +223,9 @@ class SocialMediaService:
         try:
             # Use PRAW if available, otherwise RSS
             if self.reddit_client:
-                return await self._fetch_reddit_praw(ticker, company_name)
+                return await self._fetch_reddit_praw(ticker, company_name, subreddits=subreddits)
             else:
-                return await self._fetch_reddit_rss(ticker, company_name)
+                return await self._fetch_reddit_rss(ticker, company_name, subreddits=subreddits)
 
         except Exception as e:
             self.logger.error("Reddit fetch failed", ticker=ticker, error=str(e))
@@ -225,13 +235,15 @@ class SocialMediaService:
         self,
         ticker: str,
         company_name: Optional[str] = None,
+        subreddits: list[str] = None,
     ) -> Optional[SocialSentiment]:
         """Fetch Reddit data using PRAW (authenticated)."""
         try:
             posts_text = []
             total_score = 0
+            target_subreddits = subreddits or self.STOCK_SUBREDDITS
 
-            for subreddit_name in self.STOCK_SUBREDDITS[:2]:  # Limit to avoid rate limits
+            for subreddit_name in target_subreddits[:2]:  # Limit to avoid rate limits
                 subreddit = self.reddit_client.subreddit(subreddit_name)
 
                 # Search for ticker mentions
@@ -264,14 +276,18 @@ class SocialMediaService:
         self,
         ticker: str,
         company_name: Optional[str] = None,
+        subreddits: list[str] = None,
     ) -> Optional[SocialSentiment]:
         """Fetch Reddit data using public RSS feeds (no auth)."""
         try:
             posts_text = []
-            search_query = f"${ticker}" if len(ticker) <= 4 else ticker
+            # For Indian tickers, strip .NS suffix for search
+            search_ticker = ticker.replace(".NS", "").replace(".BO", "")
+            search_query = f"${search_ticker}" if len(search_ticker) <= 4 else search_ticker
+            target_subreddits = subreddits or self.STOCK_SUBREDDITS
 
             # Try multiple subreddits
-            for subreddit in self.STOCK_SUBREDDITS[:2]:
+            for subreddit in target_subreddits[:2]:
                 url = f"{settings.reddit_rss_url}/r/{subreddit}/search.rss?q={quote(search_query)}&sort=new&t=week"
 
                 try:

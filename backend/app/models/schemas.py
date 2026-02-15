@@ -82,6 +82,11 @@ class AnalyzeQueryRequest(BaseModel):
     """Request model for the analyze-query endpoint."""
 
     query: str = Field(..., min_length=1, max_length=500)
+    market: str = Field(
+        default="US",
+        pattern=r"^(US|IN)$",
+        description="Market context: US or IN",
+    )
 
 
 class PredictionRequest(BaseModel):
@@ -124,6 +129,11 @@ class PredictionRequest(BaseModel):
     include_news: bool = Field(
         default=True,
         description="Include news analysis",
+    )
+    market: str = Field(
+        default="US",
+        pattern=r"^(US|IN)$",
+        description="Market to analyze: US (United States) or IN (India/NSE)",
     )
 
     @field_validator("ticker")

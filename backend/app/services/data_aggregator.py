@@ -34,6 +34,7 @@ from backend.app.services.social_service import social_service
 from backend.app.services.technical_analysis import technical_analysis_service
 from backend.app.services.sentiment_service import sentiment_service
 from backend.app.services.additional_data_sources import additional_data_sources
+from backend.app.services.market_config import get_market_config
 
 logger = structlog.get_logger()
 
@@ -464,6 +465,7 @@ class DataAggregator:
         include_news: bool = True,
         include_social: bool = True,
         include_extended: bool = True,
+        market: str = "US",
     ) -> AggregatedData:
         """
         Aggregate all data for a ticker from ALL available sources.
@@ -474,6 +476,7 @@ class DataAggregator:
             include_news: Whether to include news data
             include_social: Whether to include social sentiment
             include_extended: Whether to include extended data (SEC, Finviz, etc.)
+            market: Market context ("US" or "IN")
 
         Returns:
             AggregatedData object with all fetched data
@@ -481,6 +484,7 @@ class DataAggregator:
         self.logger.info(
             "Aggregating data from ALL sources",
             ticker=ticker,
+            market=market,
             include_technicals=include_technicals,
             include_news=include_news,
             include_social=include_social,
@@ -503,22 +507,30 @@ class DataAggregator:
         # Build async tasks for slower operations
         tasks = {}
 
+        market_config = get_market_config(market)
+
         if include_news and data.company_info:
-            tasks["news"] = self._fetch_news(ticker, data.company_info.name)
+            tasks["news"] = self._fetch_news(ticker, data.company_info.name, market=market)
 
         if include_social and data.company_info:
-            tasks["social"] = self._fetch_social(ticker, data.company_info.name)
+            tasks["social"] = self._fetch_social(ticker, data.company_info.name, market=market)
 
-        # NEW: Extended data sources
+        # Extended data sources (market-aware: skip unavailable sources)
         if include_extended:
-            tasks["sec_filings"] = self._fetch_sec_filings(ticker)
-            tasks["finviz"] = self._fetch_finviz_data(ticker)
-            tasks["fear_greed"] = self._fetch_fear_greed()
-            tasks["vix"] = self._fetch_vix_data()
+            # SEC filings only available for US market
+            if market_config["has_sec_filings"]:
+                tasks["sec_filings"] = self._fetch_sec_filings(ticker)
+            # Finviz only available for US market
+            if market_config["has_finviz"]:
+                tasks["finviz"] = self._fetch_finviz_data(ticker)
+            # Fear & Greed only available for US market
+            if market_config["fear_greed_available"]:
+                tasks["fear_greed"] = self._fetch_fear_greed()
+            tasks["vix"] = self._fetch_vix_data(market=market)
             tasks["options"] = self._fetch_options_data(ticker)
             tasks["economic"] = self._fetch_economic_indicators()
-            tasks["sectors"] = self._fetch_sector_performance()
-            tasks["additional_news"] = self._fetch_additional_news(ticker)
+            tasks["sectors"] = self._fetch_sector_performance(market=market)
+            tasks["additional_news"] = self._fetch_additional_news(ticker, market=market)
 
         # Run ALL async tasks concurrently
         if tasks:
@@ -656,18 +668,18 @@ class DataAggregator:
 
         return data
 
-    async def _fetch_news(self, ticker: str, company_name: Optional[str]) -> list[NewsArticle]:
+    async def _fetch_news(self, ticker: str, company_name: Optional[str], market: str = "US") -> list[NewsArticle]:
         """Fetch news articles."""
         try:
-            return await news_service.get_news_for_ticker(ticker, company_name)
+            return await news_service.get_news_for_ticker(ticker, company_name, market=market)
         except Exception as e:
             self.logger.error("News fetch failed", error=str(e))
             return []
 
-    async def _fetch_social(self, ticker: str, company_name: Optional[str]) -> list[SocialSentiment]:
+    async def _fetch_social(self, ticker: str, company_name: Optional[str], market: str = "US") -> list[SocialSentiment]:
         """Fetch social sentiment."""
         try:
-            return await social_service.get_social_sentiment(ticker, company_name)
+            return await social_service.get_social_sentiment(ticker, company_name, market=market)
         except Exception as e:
             self.logger.error("Social fetch failed", error=str(e))
             return []
@@ -698,10 +710,10 @@ class DataAggregator:
             self.logger.error("Fear & Greed fetch failed", error=str(e))
             return {"error": str(e)}
 
-    async def _fetch_vix_data(self) -> dict:
+    async def _fetch_vix_data(self, market: str = "US") -> dict:
         """Fetch VIX volatility data."""
         try:
-            return await additional_data_sources.get_vix_data()
+            return await additional_data_sources.get_vix_data(market=market)
         except Exception as e:
             self.logger.error("VIX fetch failed", error=str(e))
             return {"error": str(e)}
@@ -722,18 +734,18 @@ class DataAggregator:
             self.logger.error("Economic indicators fetch failed", error=str(e))
             return {}
 
-    async def _fetch_sector_performance(self) -> dict:
+    async def _fetch_sector_performance(self, market: str = "US") -> dict:
         """Fetch sector ETF performance."""
         try:
-            return await additional_data_sources.get_sector_performance()
+            return await additional_data_sources.get_sector_performance(market=market)
         except Exception as e:
             self.logger.error("Sector performance fetch failed", error=str(e))
             return {}
 
-    async def _fetch_additional_news(self, ticker: str) -> list[dict]:
+    async def _fetch_additional_news(self, ticker: str, market: str = "US") -> list[dict]:
         """Fetch news from additional sources (MarketWatch, Seeking Alpha, etc.)."""
         try:
-            return await additional_data_sources.get_aggregated_news(ticker, limit=30)
+            return await additional_data_sources.get_aggregated_news(ticker, limit=30, market=market)
         except Exception as e:
             self.logger.error("Additional news fetch failed", error=str(e))
             return []

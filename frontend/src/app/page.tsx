@@ -23,7 +23,7 @@ import { PredictionResult } from "@/components/PredictionResult";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { TickerConfirmation } from "@/components/TickerConfirmation";
 import { QueryGuidance } from "@/components/QueryGuidance";
-import { api, PredictionResponse, TickerExtractionResult, QueryAnalysisResult, SSEEvent } from "@/lib/api";
+import { api, PredictionResponse, TickerExtractionResult, QueryAnalysisResult, SSEEvent, Market } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /* ============================================
@@ -107,49 +107,81 @@ function useAnimatedCounter(target: number, duration: number = 1500) {
    DATA
    ============================================ */
 
-const FEATURES: {
-  icon: typeof Database;
-  title: string;
-  description: string;
-  badge?: string;
-}[] = [
+const getArchitecturePillars = (market: Market) => [
   {
+    title: "Data Ingestion",
+    subtitle: "Real-time market data pipeline",
     icon: Database,
-    title: "12+ Data Sources",
-    description: "Real-time aggregation from Yahoo Finance, SEC EDGAR, Finviz, News APIs, and more.",
+    gradient: "from-emerald-500 to-teal-600",
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-600",
+    dotColor: "bg-emerald-400",
+    features: [
+      {
+        label: market === "IN" ? "10+ Live Sources" : "12+ Live Sources",
+        detail: market === "IN"
+          ? "Yahoo Finance, NSE/BSE data, India VIX, Google News India, Nifty sector indices, Reddit"
+          : "Yahoo Finance, SEC EDGAR, Finviz, VIX, Fear & Greed, options flow, Google News, Reddit",
+      },
+      {
+        label: "SSE Streaming",
+        detail: "Server-Sent Events pipe each analysis stage to the client in real time",
+      },
+      {
+        label: "Data Quality Scoring",
+        detail: "Every source scored for reliability; cross-validated before aggregation",
+      },
+    ],
   },
   {
+    title: "Intelligence Engine",
+    subtitle: "8-model probability matrix with hot-swappable AI backbone",
     icon: Brain,
-    title: "AI-Powered Reasoning",
-    description: "Versioned prompt engine analyzes 250+ data points with reproducible, A/B-testable logic.",
+    gradient: "from-amber-500 to-orange-600",
+    iconBg: "bg-amber-100",
+    iconColor: "text-amber-600",
+    dotColor: "bg-amber-400",
+    features: [
+      {
+        label: "Swappable AI Core",
+        detail: "Currently Gemini 2.0 Flash with versioned YAML prompts. Architecture supports hot-swapping to Claude Opus 4.6, GPT-4o, or any frontier model for deeper reasoning without changing the pipeline",
+      },
+      {
+        label: "Probability Matrix",
+        detail: "8 independent models (Monte Carlo, Bayesian inference, fat-tail distribution, technical scoring, sentiment regression, historical pattern matching, options flow analysis, multi-timeframe trend) each output a probability. Weighted ensemble combines them via confidence-adjusted averaging into a single calibrated score (15\u201385%)",
+      },
+      {
+        label: "2,000 Monte Carlo Simulations",
+        detail: "Stochastic price path simulations using historical volatility and drift. Bayesian priors update in real time as new data arrives, adjusting the posterior probability distribution before final scoring",
+      },
+    ],
   },
   {
-    icon: Zap,
-    title: "Live Streaming",
-    description: "SSE real-time prediction pipeline streams each analysis stage as it happens.",
-    badge: "New",
-  },
-  {
+    title: "Production Safety",
+    subtitle: "Guardrails and quality assurance",
     icon: Shield,
-    title: "Output Guardrails",
-    description: "PII redaction, advice-language detection, and probability clamping between 15-85%.",
-    badge: "New",
-  },
-  {
-    icon: MessageSquare,
-    title: "RAG Chat Assistant",
-    description: "Ask follow-up questions grounded in the prediction data and source documents.",
-    badge: "New",
-  },
-  {
-    icon: Target,
-    title: "Eval-Tested Quality",
-    description: "17 golden test cases with 100% pass rate ensure consistent, reliable predictions.",
-    badge: "New",
+    gradient: "from-blue-500 to-indigo-600",
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
+    dotColor: "bg-blue-400",
+    features: [
+      {
+        label: "Output Guardrails",
+        detail: "PII redaction, advice-language detection, probability clamping (15-85%)",
+      },
+      {
+        label: "RAG Chat Assistant",
+        detail: "ChromaDB + LangChain for document-grounded follow-up Q&A",
+      },
+      {
+        label: "Evaluation Suite",
+        detail: "17 golden test cases, 100% pass rate, automated regression testing",
+      },
+    ],
   },
 ];
 
-const DATA_SOURCES = [
+const DATA_SOURCES_US = [
   { name: "Yahoo Finance", reliability: 90 },
   { name: "SEC EDGAR", reliability: 95 },
   { name: "Finviz", reliability: 85 },
@@ -164,19 +196,38 @@ const DATA_SOURCES = [
   { name: "Clarividex AI", reliability: 75 },
 ];
 
-const HOW_IT_WORKS = [
+const DATA_SOURCES_IN = [
+  { name: "Yahoo Finance", reliability: 90 },
+  { name: "NSE/BSE Data", reliability: 95 },
+  { name: "Google News India", reliability: 80 },
+  { name: "Reddit India", reliability: 70 },
+  { name: "India VIX", reliability: 90 },
+  { name: "Nifty Indices", reliability: 95 },
+  { name: "Options Data", reliability: 85 },
+  { name: "Technical Analysis", reliability: 85 },
+  { name: "Sector Indices", reliability: 90 },
+  { name: "Clarividex AI", reliability: 75 },
+];
+
+const getHowItWorks = (market: Market) => [
   {
     step: 1,
     icon: Search,
     title: "Enter Your Question",
-    description: "Ask about any US stock prediction. Include ticker, target price, or timeframe for best results.",
-    example: '"Will NVDA reach $180 by March 2026?"',
+    description: market === "IN"
+      ? "Ask about any Indian stock prediction. Include NSE ticker, target price, or timeframe for best results."
+      : "Ask about any US stock prediction. Include ticker, target price, or timeframe for best results.",
+    example: market === "IN"
+      ? '"Will Reliance reach \u20b93000 by March 2026?"'
+      : '"Will NVDA reach $180 by March 2026?"',
   },
   {
     step: 2,
     icon: Database,
     title: "Data Aggregation",
-    description: "We fetch real-time data from 12+ sources including Yahoo Finance, SEC filings, news, and social media.",
+    description: market === "IN"
+      ? "We fetch real-time data from 10+ sources including Yahoo Finance, NSE/BSE data, Indian news, and social media."
+      : "We fetch real-time data from 12+ sources including Yahoo Finance, SEC filings, news, and social media.",
     details: ["Stock prices & volume", "News sentiment", "Technical indicators", "Options flow"],
   },
   {
@@ -196,10 +247,64 @@ const HOW_IT_WORKS = [
 ];
 
 /* ============================================
+   CROSS-MARKET DETECTION
+   ============================================ */
+
+function detectCrossMarket(
+  query: string,
+  market: Market
+): { targetMarket: Market; message: string } | null {
+  // Indian stock signals when user is on US side
+  if (market === "US") {
+    const hasRupee = query.includes("₹");
+    const hasNSBO = /\.\s*(?:ns|bo)\b/i.test(query);
+    const indianTerms =
+      /\b(reliance|infosys|tcs|hdfc\s*bank|icici|wipro|nifty|sensex|nse|bse|bharti\s*airtel|itc\b|maruti|bajaj\s*finance|adani|kotak|sun\s*pharma|asian\s*paints|titan|ntpc|ongc|coal\s*india|sbi|axis\s*bank|hindustan\s*unilever|power\s*grid|larsen|hul)\b/i;
+    if (hasRupee || hasNSBO || indianTerms.test(query)) {
+      return {
+        targetMarket: "IN",
+        message:
+          "This looks like an Indian stock. Switch to India mode for accurate NSE/BSE data and ₹ pricing.",
+      };
+    }
+  }
+
+  // US stock signals when user is on India side
+  if (market === "IN") {
+    const usTickerPattern =
+      /\b(AAPL|TSLA|NVDA|MSFT|AMZN|GOOG|GOOGL|META|AMD|NFLX|SPY|QQQ|DIS|BA|JPM|GS|INTC|CRM|ORCL|PYPL|UBER|ABNB|COIN)\b/;
+    const usTerms = /\b(s&p\s*500|nasdaq|dow\s*jones|nyse|wall\s*street)\b/i;
+    const hasDollarPrice = /\$\d/.test(query);
+    if (usTickerPattern.test(query) || usTerms.test(query) || hasDollarPrice) {
+      return {
+        targetMarket: "US",
+        message:
+          "This looks like a US stock. Switch to USA mode for accurate NYSE/NASDAQ data and $ pricing.",
+      };
+    }
+  }
+
+  return null;
+}
+
+/* ============================================
    COMPONENT
    ============================================ */
 
 export default function Home() {
+  const [market, setMarketState] = useState<Market>(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("clarividex_market");
+      if (saved === "US" || saved === "IN") return saved;
+    }
+    return "US";
+  });
+  const setMarket = (m: Market) => {
+    setMarketState(m);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("clarividex_market", m);
+    }
+  };
   const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -213,6 +318,11 @@ export default function Home() {
   const [activeQuery, setActiveQuery] = useState<string>("");
   const [queryGuidance, setQueryGuidance] = useState<{
     analysis: QueryAnalysisResult;
+    query: string;
+  } | null>(null);
+  const [crossMarketSuggestion, setCrossMarketSuggestion] = useState<{
+    targetMarket: Market;
+    message: string;
     query: string;
   } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -240,7 +350,7 @@ export default function Home() {
 
   const proceedWithTickerValidation = async (query: string) => {
     try {
-      const validation = await api.validateTicker(query);
+      const validation = await api.validateTicker(query, market);
 
       if (validation.needs_confirmation && validation.confidence < 0.8) {
         setTickerConfirmation({ result: validation, query });
@@ -257,15 +367,10 @@ export default function Home() {
     }
   };
 
-  const handleSubmit = async (query: string) => {
-    setError(null);
-    setPrediction(null);
-    setTickerConfirmation(null);
-    setQueryGuidance(null);
+  const runQueryAnalysis = async (query: string) => {
     setIsAnalyzing(true);
-
     try {
-      const analysis = await api.analyzeQuery(query);
+      const analysis = await api.analyzeQuery(query, market);
       // Use the cleaned query (spelling fixes, gibberish removed) if available
       const effectiveQuery = analysis.cleaned_query || query;
 
@@ -281,6 +386,23 @@ export default function Home() {
       // If analyze-query fails, fall through to ticker validation directly
       await proceedWithTickerValidation(query);
     }
+  };
+
+  const handleSubmit = async (query: string) => {
+    setError(null);
+    setPrediction(null);
+    setTickerConfirmation(null);
+    setQueryGuidance(null);
+    setCrossMarketSuggestion(null);
+
+    // Check for cross-market query
+    const crossMarket = detectCrossMarket(query, market);
+    if (crossMarket) {
+      setCrossMarketSuggestion({ ...crossMarket, query });
+      return;
+    }
+
+    await runQueryAnalysis(query);
   };
 
   const executePrediction = async (query: string, ticker?: string) => {
@@ -300,6 +422,7 @@ export default function Home() {
         include_technicals: true,
         include_sentiment: true,
         include_news: true,
+        market,
       });
 
       setPrediction(result);
@@ -347,6 +470,20 @@ export default function Home() {
 
   const handleGuidanceCancel = () => {
     setQueryGuidance(null);
+  };
+
+  const handleCrossMarketSwitch = () => {
+    if (!crossMarketSuggestion) return;
+    setMarket(crossMarketSuggestion.targetMarket);
+    setActiveQuery(crossMarketSuggestion.query);
+    setCrossMarketSuggestion(null);
+  };
+
+  const handleCrossMarketContinue = () => {
+    if (!crossMarketSuggestion) return;
+    const query = crossMarketSuggestion.query;
+    setCrossMarketSuggestion(null);
+    runQueryAnalysis(query);
   };
 
   const handleNewPrediction = () => {
@@ -407,7 +544,38 @@ export default function Home() {
               )} />
             </a>
 
-            <nav className="flex items-center gap-6">
+            <nav className="flex items-center gap-4 sm:gap-6">
+              {/* Market Selector — Animated Toggle */}
+              <div className="relative flex items-center bg-slate-100 rounded-full p-1 w-[136px] sm:w-[168px]">
+                {/* Sliding indicator */}
+                <div
+                  className={cn(
+                    "absolute top-1 h-[calc(100%-8px)] w-[calc(50%-4px)] rounded-full bg-white shadow-md transition-all duration-300 ease-in-out",
+                    market === "US" ? "left-1" : "left-[calc(50%+2px)]"
+                  )}
+                />
+                <button
+                  onClick={() => { setMarket("US"); setPrediction(null); setError(null); }}
+                  className={cn(
+                    "relative z-10 flex items-center justify-center gap-1.5 w-1/2 py-1.5 rounded-full text-xs font-semibold transition-colors duration-300",
+                    market === "US" ? "text-slate-800" : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  <span className="text-base leading-none">🇺🇸</span>
+                  <span>USA</span>
+                </button>
+                <button
+                  onClick={() => { setMarket("IN"); setPrediction(null); setError(null); }}
+                  className={cn(
+                    "relative z-10 flex items-center justify-center gap-1.5 w-1/2 py-1.5 rounded-full text-xs font-semibold transition-colors duration-300",
+                    market === "IN" ? "text-slate-800" : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  <span className="text-base leading-none">🇮🇳</span>
+                  <span>India</span>
+                </button>
+              </div>
+
               {[
                 { href: "#how-it-works", label: "How It Works" },
                 { href: "#features", label: "Features" },
@@ -464,8 +632,8 @@ export default function Home() {
           {/* Animated stat counters */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 max-w-2xl mx-auto">
             <div ref={counter1.ref} className="glass-card-dark p-4 text-center">
-              <div className="text-3xl font-bold text-white">{counter1.count}+</div>
-              <div className="text-sm text-slate-400 mt-1">Data Sources</div>
+              <div className="text-3xl font-bold text-white">{market === "IN" ? "10+" : `${counter1.count}+`}</div>
+              <div className="text-sm text-slate-400 mt-1">{market === "IN" ? "NSE/BSE Sources" : "Data Sources"}</div>
             </div>
             <div ref={counter2.ref} className="glass-card-dark p-4 text-center">
               <div className="text-3xl font-bold text-white">{counter2.count}+</div>
@@ -487,8 +655,54 @@ export default function Home() {
 
         {/* Search Form — white card pops on dark */}
         <div className="relative z-10">
-          <PredictionForm onSubmit={handleSubmit} isLoading={isLoading} isAnalyzing={isAnalyzing} externalQuery={activeQuery} />
+          <PredictionForm onSubmit={handleSubmit} isLoading={isLoading} isAnalyzing={isAnalyzing} externalQuery={activeQuery} market={market} />
         </div>
+
+        {/* Market Timing Info */}
+        <div className="relative z-10 max-w-2xl mx-auto mt-4">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>
+                {market === "IN"
+                  ? "NSE/BSE: 9:15 AM \u2013 3:30 PM IST"
+                  : "NYSE/NASDAQ: 9:30 AM \u2013 4:00 PM ET"}
+              </span>
+            </div>
+            <span className="text-slate-600 hidden sm:inline">&middot;</span>
+            <span>Short-term & long-term predictions</span>
+            <span className="text-slate-600 hidden sm:inline">&middot;</span>
+            <span>Data freshness varies with market hours</span>
+          </div>
+        </div>
+
+        {/* Cross-Market Suggestion */}
+        {crossMarketSuggestion && (
+          <div className="relative z-10 max-w-2xl mx-auto mt-6">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 backdrop-blur-sm">
+              <div className="flex items-start gap-3 flex-1">
+                <span className="text-xl leading-none mt-0.5">
+                  {crossMarketSuggestion.targetMarket === "IN" ? "\ud83c\uddee\ud83c\uddf3" : "\ud83c\uddfa\ud83c\uddf8"}
+                </span>
+                <p className="text-sm text-amber-200">{crossMarketSuggestion.message}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleCrossMarketSwitch}
+                  className="px-4 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded-full hover:bg-amber-600 transition-colors"
+                >
+                  Switch to {crossMarketSuggestion.targetMarket === "IN" ? "India" : "USA"}
+                </button>
+                <button
+                  onClick={handleCrossMarketContinue}
+                  className="px-4 py-1.5 text-amber-300 text-xs font-medium hover:text-amber-200 transition-colors"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error Display — adjusted for dark bg */}
         {error && (
@@ -530,7 +744,7 @@ export default function Home() {
               <LoadingSkeleton sseEvents={sseEvents} />
             ) : prediction ? (
               <div className="animate-fade-in">
-                <PredictionResult prediction={prediction} />
+                <PredictionResult prediction={prediction} market={market} />
               </div>
             ) : null}
           </div>
@@ -556,14 +770,14 @@ export default function Home() {
               </div>
 
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto">
-                {HOW_IT_WORKS.map((item, index) => (
+                {getHowItWorks(market).map((item, index) => (
                   <div key={index} className="step-card section-reveal" style={{ transitionDelay: `${index * 100}ms` }}>
                     <div className="flex items-center gap-3 mb-4">
                       <div className="step-number">{item.step}</div>
                       <item.icon className="w-5 h-5 text-slate-400" />
                     </div>
                     {/* Arrow connector (desktop) */}
-                    {index < HOW_IT_WORKS.length - 1 && (
+                    {index < getHowItWorks(market).length - 1 && (
                       <div className="hidden lg:block absolute -right-3 top-1/2 -translate-y-1/2 z-10">
                         <ArrowRight className="w-5 h-5 text-amber-400/50" />
                       </div>
@@ -673,38 +887,53 @@ export default function Home() {
           </section>
 
           {/* ============================================
-              FEATURES — Bento grid
+              FEATURES — Three-pillar architecture
               ============================================ */}
           <section id="features" className="section px-4 sm:px-6 lg:px-8 bg-white">
             <div className="container-app">
               <div className="text-center mb-14 section-reveal">
-                <h3 className="heading-2 mb-4">Features</h3>
-                <p className="body-text max-w-xl mx-auto text-lg">
-                  Unlike generic chatbots, we aggregate real market data and provide
-                  transparent, quantified predictions.
+                <h3 className="heading-2 mb-4">Architecture</h3>
+                <p className="body-text max-w-2xl mx-auto text-lg">
+                  Three-layer pipeline: ingest real-time market data, run it through an 8-model
+                  AI ensemble, and deliver guardrailed predictions with full transparency.
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
-                {FEATURES.map((feature, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "bento-item relative section-reveal",
-                      index === 0 && "lg:col-span-2"
+              <div className="grid lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                {getArchitecturePillars(market).map((pillar, i) => (
+                  <div key={i} className="relative section-reveal" style={{ transitionDelay: `${i * 120}ms` }}>
+                    {/* Connector arrow between pillars (desktop) */}
+                    {i < 2 && (
+                      <div className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-6 items-center justify-center">
+                        <ArrowRight className="w-5 h-5 text-slate-300" />
+                      </div>
                     )}
-                    style={{ transitionDelay: `${index * 80}ms` }}
-                  >
-                    {feature.badge && (
-                      <span className="absolute top-4 right-4 px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-semibold rounded-full">
-                        {feature.badge}
-                      </span>
-                    )}
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center mb-4">
-                      <feature.icon className="w-5 h-5 text-amber-600" />
+                    <div className="glass-card p-6 h-full hover:-translate-y-1 transition-transform duration-300">
+                      {/* Pillar header */}
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", pillar.iconBg)}>
+                          <pillar.icon className={cn("w-5 h-5", pillar.iconColor)} />
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Layer {i + 1}</div>
+                          <h4 className="font-bold text-slate-800 text-base">{pillar.title}</h4>
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-500 mb-5 leading-relaxed">{pillar.subtitle}</p>
+
+                      {/* Sub-features */}
+                      <div className="space-y-4">
+                        {pillar.features.map((feat, j) => (
+                          <div key={j} className="flex items-start gap-3">
+                            <div className={cn("w-1.5 h-1.5 rounded-full mt-[7px] shrink-0", pillar.dotColor)} />
+                            <div>
+                              <div className="text-sm font-semibold text-slate-700">{feat.label}</div>
+                              <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">{feat.detail}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <h4 className="font-semibold text-slate-800 text-base mb-2">{feature.title}</h4>
-                    <p className="text-sm text-slate-500 leading-relaxed">{feature.description}</p>
                   </div>
                 ))}
               </div>
@@ -719,13 +948,15 @@ export default function Home() {
               <div className="text-center mb-14 section-reveal">
                 <h3 className="heading-2 mb-4">Data Sources</h3>
                 <p className="body-text max-w-xl mx-auto text-lg">
-                  We aggregate data from 12+ trusted sources with reliability scoring.
+                  {market === "IN"
+                    ? "We aggregate data from 10+ trusted sources covering NSE, BSE, India VIX, and Indian financial news — each scored for reliability."
+                    : "We aggregate data from 12+ trusted sources including SEC EDGAR, options flow, and VIX — each scored for reliability."}
                 </p>
               </div>
 
               {/* Source cards with progress bars */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl mx-auto section-reveal">
-                {DATA_SOURCES.map((source, index) => (
+                {(market === "IN" ? DATA_SOURCES_IN : DATA_SOURCES_US).map((source, index) => (
                   <div
                     key={index}
                     className="glass-card p-3 text-center"
@@ -858,8 +1089,8 @@ export default function Home() {
                           { feature: "Probability Score", agent: '"Could go up or down"', us: "62% with confidence level" },
                           { feature: "Real-time RSI, MACD", agent: null, us: true },
                           { feature: "Live Options Flow (Put/Call)", agent: null, us: true },
-                          { feature: "VIX & Fear/Greed Index", agent: null, us: true },
-                          { feature: "12+ Data Sources", agent: "Random web results", us: "SEC, Yahoo, Finviz, etc." },
+                          { feature: market === "IN" ? "India VIX & Nifty Indices" : "VIX & Fear/Greed Index", agent: null, us: true },
+                          { feature: market === "IN" ? "10+ Data Sources" : "12+ Data Sources", agent: "Random web results", us: market === "IN" ? "NSE, Yahoo, India VIX, etc." : "SEC, Yahoo, Finviz, etc." },
                           { feature: "Consistent Methodology", agent: "Varies each time", us: "Same weighted scoring" },
                           { feature: "Transparent Reasoning", agent: null, us: true },
                           { feature: "Impact News Analysis", agent: "General search", us: "Crashes, lawsuits, recalls" },
@@ -907,7 +1138,7 @@ export default function Home() {
                   Ready to See the Future?
                 </h3>
                 <p className="text-slate-300 mb-8 text-lg">
-                  Ask Clarividex about any US stock. No signup required.
+                  Ask Clarividex about any {market === "IN" ? "Indian" : "US"} stock. No signup required.
                 </p>
                 <button
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}

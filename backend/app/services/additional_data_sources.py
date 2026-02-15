@@ -34,6 +34,7 @@ from cachetools import TTLCache
 import structlog
 
 from backend.app.config import settings
+from backend.app.services.market_config import get_market_config
 
 logger = structlog.get_logger()
 
@@ -357,17 +358,21 @@ class AdditionalDataSources:
 
     # ==================== Multiple RSS News Feeds ====================
 
-    async def get_aggregated_news(self, ticker: str = None, limit: int = 30) -> list[dict]:
+    async def get_aggregated_news(self, ticker: str = None, limit: int = 30, market: str = "US") -> list[dict]:
         """
         Aggregate news from multiple RSS feeds.
 
         Args:
             ticker: Optional ticker to filter news
             limit: Max articles to return
+            market: Market context ("US" or "IN")
 
         Returns:
             List of news articles from multiple sources
         """
+        market_config = get_market_config(market)
+        news_locale = market_config["news_locale"]
+
         # Use ticker-specific Google News for better results
         feeds = [
             ("MarketWatch", settings.marketwatch_rss_url),
@@ -377,11 +382,13 @@ class AdditionalDataSources:
 
         # Add ticker-specific searches
         if ticker:
-            google_url = f"{settings.google_news_rss_url}?q={ticker}+stock&hl=en-US&gl=US&ceid=US:en"
+            # Strip .NS/.BO suffix for search
+            search_ticker = ticker.replace(".NS", "").replace(".BO", "") if market == "IN" else ticker
+            google_url = f"{settings.google_news_rss_url}?q={search_ticker}+stock&{news_locale}"
             feeds.append(("Google News", google_url))
 
             # Yahoo Finance ticker-specific
-            yahoo_ticker_url = f"{settings.yahoo_finance_rss_url}?s={ticker}&region=US&lang=en-US"
+            yahoo_ticker_url = f"{settings.yahoo_finance_rss_url}?s={ticker}&region={'IN' if market == 'IN' else 'US'}&lang=en-{'IN' if market == 'IN' else 'US'}"
             feeds.append(("Yahoo Finance Ticker", yahoo_ticker_url))
 
         tasks = [self._fetch_rss_feed(name, url, None) for name, url in feeds]  # Don't filter by ticker since URLs are already specific
@@ -446,21 +453,26 @@ class AdditionalDataSources:
 
     # ==================== VIX / Volatility Data ====================
 
-    async def get_vix_data(self) -> dict:
+    async def get_vix_data(self, market: str = "US") -> dict:
         """
         Get VIX (Volatility Index) data.
+
+        Args:
+            market: Market context ("US" or "IN"). Uses India VIX for IN market.
 
         Returns:
             Dict with VIX value and interpretation
         """
-        cache_key = "vix"
+        market_config = get_market_config(market)
+        vix_ticker = market_config["vix_ticker"]
+        cache_key = f"vix_{market}"
         if cache_key in _sentiment_cache:
             return _sentiment_cache[cache_key]
 
         try:
             # Use yfinance for VIX
             import yfinance as yf
-            vix = yf.Ticker("^VIX")
+            vix = yf.Ticker(vix_ticker)
             hist = vix.history(period="5d")
 
             if hist.empty:
@@ -737,34 +749,51 @@ class AdditionalDataSources:
 
     # ==================== Sector Performance ====================
 
-    async def get_sector_performance(self) -> dict:
+    async def get_sector_performance(self, market: str = "US") -> dict:
         """
         Get sector ETF performance.
+
+        Args:
+            market: Market context ("US" or "IN")
 
         Returns:
             Dict with sector performance data
         """
-        cache_key = "sectors"
+        cache_key = f"sectors_{market}"
         if cache_key in _screener_cache:
             return _screener_cache[cache_key]
 
         try:
             import yfinance as yf
 
-            # Sector ETFs
-            sectors = {
-                "Technology": "XLK",
-                "Healthcare": "XLV",
-                "Financials": "XLF",
-                "Consumer Discretionary": "XLY",
-                "Communication Services": "XLC",
-                "Industrials": "XLI",
-                "Consumer Staples": "XLP",
-                "Energy": "XLE",
-                "Utilities": "XLU",
-                "Real Estate": "XLRE",
-                "Materials": "XLB",
-            }
+            # Sector ETFs - use Indian ETFs/indices for India market
+            if market == "IN":
+                sectors = {
+                    "Nifty 50": "^NSEI",
+                    "Sensex": "^BSESN",
+                    "Bank Nifty": "^NSEBANK",
+                    "Nifty IT": "^CNXIT",
+                    "Nifty Pharma": "^CNXPHARMA",
+                    "Nifty Auto": "^CNXAUTO",
+                    "Nifty FMCG": "^CNXFMCG",
+                    "Nifty Metal": "^CNXMETAL",
+                    "Nifty Realty": "^CNXREALTY",
+                    "Nifty Energy": "^CNXENERGY",
+                }
+            else:
+                sectors = {
+                    "Technology": "XLK",
+                    "Healthcare": "XLV",
+                    "Financials": "XLF",
+                    "Consumer Discretionary": "XLY",
+                    "Communication Services": "XLC",
+                    "Industrials": "XLI",
+                    "Consumer Staples": "XLP",
+                    "Energy": "XLE",
+                    "Utilities": "XLU",
+                    "Real Estate": "XLRE",
+                    "Materials": "XLB",
+                }
 
             result = {}
 
@@ -795,30 +824,38 @@ class AdditionalDataSources:
 
     # ==================== Comprehensive Data Fetch ====================
 
-    async def get_comprehensive_data(self, ticker: str) -> dict:
+    async def get_comprehensive_data(self, ticker: str, market: str = "US") -> dict:
         """
         Fetch all available data for a ticker from all sources.
 
         Args:
             ticker: Stock ticker symbol
+            market: Market context ("US" or "IN")
 
         Returns:
             Comprehensive dict with all available data
         """
-        self.logger.info("Fetching comprehensive data", ticker=ticker)
+        self.logger.info("Fetching comprehensive data", ticker=ticker, market=market)
 
-        # Run all fetches concurrently
+        market_config = get_market_config(market)
+
+        # Build tasks based on market availability
         tasks = {
-            "sec_filings": self.get_sec_filings(ticker),
-            "finviz": self.get_finviz_data(ticker),
-            "fear_greed": self.get_fear_greed_index(),
-            "vix": self.get_vix_data(),
+            "vix": self.get_vix_data(market=market),
             "options": self.get_options_overview(ticker),
-            "short_interest": self.get_short_interest(ticker),
             "economic": self.get_economic_indicators(),
-            "sectors": self.get_sector_performance(),
-            "news": self.get_aggregated_news(ticker, limit=30),
+            "sectors": self.get_sector_performance(market=market),
+            "news": self.get_aggregated_news(ticker, limit=30, market=market),
         }
+
+        # Only include US-specific sources when market is US
+        if market_config["has_sec_filings"]:
+            tasks["sec_filings"] = self.get_sec_filings(ticker)
+        if market_config["has_finviz"]:
+            tasks["finviz"] = self.get_finviz_data(ticker)
+            tasks["short_interest"] = self.get_short_interest(ticker)
+        if market_config["fear_greed_available"]:
+            tasks["fear_greed"] = self.get_fear_greed_index()
 
         results = {}
         task_results = await asyncio.gather(

@@ -19,7 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useState } from "react";
-import { PredictionResponse } from "@/lib/api";
+import { PredictionResponse, Market } from "@/lib/api";
 import {
   cn,
   formatCurrency,
@@ -35,9 +35,10 @@ import FloatingChatbot from "./FloatingChatbot";
 
 interface PredictionResultProps {
   prediction: PredictionResponse;
+  market?: Market;
 }
 
-export function PredictionResult({ prediction }: PredictionResultProps) {
+export function PredictionResult({ prediction, market = "US" }: PredictionResultProps) {
   const [showAllNews, setShowAllNews] = useState(false);
   const [showAllFactors, setShowAllFactors] = useState(false);
 
@@ -61,10 +62,10 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
                     {prediction.ticker}
                   </span>
                   {prediction.current_price && (
-                    <span>Current: {formatCurrency(prediction.current_price)}</span>
+                    <span>Current: {formatCurrency(prediction.current_price, 2, market)}</span>
                   )}
                   {prediction.target_price && (
-                    <span>Target: {formatCurrency(prediction.target_price)}</span>
+                    <span>Target: {formatCurrency(prediction.target_price, 2, market)}</span>
                   )}
                 </div>
               )}
@@ -551,7 +552,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
                   <InfoTooltip term="sma" />
                 </div>
                 <div className="text-xl font-semibold text-slate-700">
-                  {formatCurrency(prediction.technicals.sma_20)}
+                  {formatCurrency(prediction.technicals.sma_20, 2, market)}
                 </div>
                 <div className="text-xs text-slate-400 mt-1.5">20-day avg</div>
               </div>
@@ -565,7 +566,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
                   <InfoTooltip term="sma" />
                 </div>
                 <div className="text-xl font-semibold text-slate-700">
-                  {formatCurrency(prediction.technicals.sma_50)}
+                  {formatCurrency(prediction.technicals.sma_50, 2, market)}
                 </div>
                 <div className="text-xs text-slate-400 mt-1.5">50-day avg</div>
               </div>
@@ -579,7 +580,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
                   <InfoTooltip term="sma" />
                 </div>
                 <div className="text-xl font-semibold text-slate-700">
-                  {formatCurrency(prediction.technicals.sma_200)}
+                  {formatCurrency(prediction.technicals.sma_200, 2, market)}
                 </div>
                 <div className="text-xs text-slate-400 mt-1.5">200-day avg</div>
               </div>
@@ -593,7 +594,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
                   <InfoTooltip term="support" />
                 </div>
                 <div className="text-xl font-semibold text-emerald-700">
-                  {formatCurrency(prediction.technicals.support_level)}
+                  {formatCurrency(prediction.technicals.support_level, 2, market)}
                 </div>
                 <div className="text-xs text-emerald-500 mt-1.5">Price floor</div>
               </div>
@@ -607,7 +608,7 @@ export function PredictionResult({ prediction }: PredictionResultProps) {
                   <InfoTooltip term="resistance" />
                 </div>
                 <div className="text-xl font-semibold text-red-700">
-                  {formatCurrency(prediction.technicals.resistance_level)}
+                  {formatCurrency(prediction.technicals.resistance_level, 2, market)}
                 </div>
                 <div className="text-xs text-red-500 mt-1.5">Price ceiling</div>
               </div>

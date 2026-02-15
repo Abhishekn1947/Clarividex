@@ -3,22 +3,31 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, Loader2, Sparkles, TrendingUp, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Market } from "@/lib/api";
 
 interface PredictionFormProps {
   onSubmit: (query: string) => void;
   isLoading: boolean;
   isAnalyzing?: boolean;
   externalQuery?: string;
+  market?: Market;
 }
 
-const EXAMPLE_QUERIES = [
+const EXAMPLE_QUERIES_US = [
   { text: "Will NVDA reach $150 by March 2026?", icon: TrendingUp },
   { text: "Will Tesla stock go up this month?", icon: TrendingUp },
   { text: "Will Apple beat earnings next quarter?", icon: TrendingUp },
   { text: "Will Boeing stock drop after recent news?", icon: TrendingUp },
 ];
 
-const PLACEHOLDER_TEXTS = [
+const EXAMPLE_QUERIES_IN = [
+  { text: "Will Reliance reach \u20b93000 by March 2026?", icon: TrendingUp },
+  { text: "Will TCS stock go up this month?", icon: TrendingUp },
+  { text: "Will Infosys beat earnings next quarter?", icon: TrendingUp },
+  { text: "Will HDFC Bank stock rise after RBI policy?", icon: TrendingUp },
+];
+
+const PLACEHOLDER_TEXTS_US = [
   "Ask Clarividex: Will NVDA reach $150 by March?",
   "Ask Clarividex: Will Tesla stock go up this month?",
   "Ask Clarividex: Should I buy Apple stock?",
@@ -26,12 +35,26 @@ const PLACEHOLDER_TEXTS = [
   "Ask Clarividex: What will happen to Microsoft stock?",
 ];
 
-export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, externalQuery }: PredictionFormProps) {
+const PLACEHOLDER_TEXTS_IN = [
+  "Ask Clarividex: Will Reliance reach \u20b93000?",
+  "Ask Clarividex: Will TCS stock go up this month?",
+  "Ask Clarividex: Should I buy Infosys stock?",
+  "Ask Clarividex: Will HDFC Bank rise after RBI policy?",
+  "Ask Clarividex: What will happen to Tata Motors?",
+];
+
+export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, externalQuery, market = "US" }: PredictionFormProps) {
   const busy = isLoading || isAnalyzing;
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const exampleQueries = market === "IN" ? EXAMPLE_QUERIES_IN : EXAMPLE_QUERIES_US;
+  const placeholderTexts = market === "IN" ? PLACEHOLDER_TEXTS_IN : PLACEHOLDER_TEXTS_US;
+  const helperText = market === "IN"
+    ? "Include an NSE ticker (RELIANCE, TCS) or company name for best results"
+    : "Include a stock ticker (AAPL, TSLA) or company name for best results";
 
   // Sync search box when parent sets a new query (e.g. from suggestion click)
   useEffect(() => {
@@ -46,11 +69,11 @@ export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, exter
   useEffect(() => {
     if (!isFocused && !query) {
       const interval = setInterval(() => {
-        setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDER_TEXTS.length);
+        setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
       }, 3000);
       return () => clearInterval(interval);
     }
-  }, [isFocused, query]);
+  }, [isFocused, query, placeholderTexts.length]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -112,7 +135,7 @@ export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, exter
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 onKeyDown={handleKeyDown}
-                placeholder={PLACEHOLDER_TEXTS[placeholderIndex]}
+                placeholder={placeholderTexts[placeholderIndex]}
                 rows={1}
                 className={cn(
                   "w-full pl-10 sm:pl-12 pr-2 py-3 sm:py-4 text-sm sm:text-base resize-none",
@@ -168,7 +191,7 @@ export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, exter
         {/* Helper text */}
         <div className="flex items-center justify-center gap-1 mt-2 text-xs text-slate-400">
           <HelpCircle className="w-3 h-3" />
-          <span>Include a stock ticker (AAPL, TSLA) or company name for best results</span>
+          <span>{helperText}</span>
         </div>
       </form>
 
@@ -180,7 +203,7 @@ export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, exter
           </span>
         </div>
         <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-1.5 sm:gap-2 sm:justify-center">
-          {EXAMPLE_QUERIES.map((example, index) => (
+          {exampleQueries.map((example, index) => (
             <button
               key={index}
               onClick={() => handleExampleClick(example.text)}

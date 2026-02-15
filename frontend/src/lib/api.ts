@@ -4,6 +4,8 @@
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
+export type Market = "US" | "IN";
+
 export interface PredictionRequest {
   query: string;
   ticker?: string;
@@ -12,6 +14,7 @@ export interface PredictionRequest {
   include_technicals?: boolean;
   include_sentiment?: boolean;
   include_news?: boolean;
+  market?: Market;
 }
 
 export interface Factor {
@@ -261,27 +264,27 @@ class APIClient {
   }
 
   // Extract ticker from text
-  async extractTicker(text: string): Promise<{ extracted_ticker: string | null }> {
-    return this.request(`/api/v1/extract-ticker?text=${encodeURIComponent(text)}`);
+  async extractTicker(text: string, market: Market = "US"): Promise<{ extracted_ticker: string | null }> {
+    return this.request(`/api/v1/extract-ticker?text=${encodeURIComponent(text)}&market=${market}`);
   }
 
   // Validate and extract ticker with confidence info
-  async validateTicker(query: string): Promise<TickerExtractionResult> {
+  async validateTicker(query: string, market: Market = "US"): Promise<TickerExtractionResult> {
     return this.request<TickerExtractionResult>(
-      `/api/v1/validate-ticker?query=${encodeURIComponent(query)}`
+      `/api/v1/validate-ticker?query=${encodeURIComponent(query)}&market=${market}`
     );
   }
 
   // Get popular tickers
-  async getPopularTickers(): Promise<{ tickers: string[] }> {
-    return this.request("/api/v1/popular-tickers");
+  async getPopularTickers(market: Market = "US"): Promise<{ tickers: string[] }> {
+    return this.request(`/api/v1/popular-tickers?market=${market}`);
   }
 
   // Analyze query quality and relevance
-  async analyzeQuery(query: string): Promise<QueryAnalysisResult> {
+  async analyzeQuery(query: string, market: Market = "US"): Promise<QueryAnalysisResult> {
     return this.request<QueryAnalysisResult>("/api/v1/analyze-query", {
       method: "POST",
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, market }),
     });
   }
 

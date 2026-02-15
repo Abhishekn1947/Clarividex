@@ -15,10 +15,12 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Format a number as currency.
  */
-export function formatCurrency(value: number, decimals: number = 2): string {
-  return new Intl.NumberFormat("en-US", {
+export function formatCurrency(value: number, decimals: number = 2, market: "US" | "IN" = "US"): string {
+  const locale = market === "IN" ? "en-IN" : "en-US";
+  const currency = market === "IN" ? "INR" : "USD";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(value);

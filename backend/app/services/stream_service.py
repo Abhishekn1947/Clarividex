@@ -48,19 +48,29 @@ class PredictionStreamService:
             from backend.app.services.query_validator import financial_query_validator
             validation = financial_query_validator.validate_query(request.query)
 
+            market = request.market
+
             # Stage 1: Extract ticker
             ticker = request.ticker
             if not ticker:
-                ticker = market_data_service.extract_ticker_from_query(request.query)
+                ticker = market_data_service.extract_ticker_from_query(request.query, market=market)
             if not ticker:
                 if not validation.is_valid:
-                    yield _sse_event("error", {
-                        "message": "This doesn't appear to be a financial query and no ticker could be identified.",
-                        "suggestions": validation.suggestions or [
+                    if market == "IN":
+                        suggestions = [
+                            "Will Reliance reach \u20b93000 by March 2026?",
+                            "Will TCS stock go up in the next month?",
+                            "Will Infosys beat earnings next quarter?",
+                        ]
+                    else:
+                        suggestions = [
                             "Will NVDA reach $150 by March 2026?",
                             "Will Tesla stock go up in the next month?",
                             "Will Bitcoin hit $100k this year?",
-                        ],
+                        ]
+                    yield _sse_event("error", {
+                        "message": "This doesn't appear to be a financial query and no ticker could be identified.",
+                        "suggestions": validation.suggestions or suggestions,
                     })
                 else:
                     yield _sse_event("error", {"message": "Could not identify a stock ticker in your query."})
@@ -74,6 +84,7 @@ class PredictionStreamService:
                 include_technicals=request.include_technicals,
                 include_news=request.include_news,
                 include_social=request.include_sentiment,
+                market=market,
             )
             if not data.quote:
                 yield _sse_event("error", {"message": f"Could not fetch market data for {ticker}."})

@@ -17,6 +17,12 @@ import structlog
 
 from backend.app.models.schemas import StockQuote, CompanyInfo, TickerExtractionResult, TickerSuggestion, InstrumentType
 from backend.app.services.instrument_detector import instrument_detector
+from backend.app.services.market_config import (
+    get_market_config,
+    INDIAN_COMPANY_TO_TICKER,
+    INDIAN_POPULAR_TICKERS,
+    INDIAN_TICKER_TO_COMPANY,
+)
 
 logger = structlog.get_logger()
 
@@ -236,20 +242,23 @@ class MarketDataService:
         """Initialize the market data service."""
         self.logger = logger.bind(service="market_data")
 
-    def get_company_name(self, ticker: str) -> str:
+    def get_company_name(self, ticker: str, market: str = "US") -> str:
         """Get company name for a ticker."""
-        ticker = ticker.upper()
-        if ticker in self.TICKER_TO_COMPANY:
-            return self.TICKER_TO_COMPANY[ticker]
+        ticker_upper = ticker.upper()
+        # Check Indian mapping first if market is IN
+        if market == "IN" and ticker_upper in INDIAN_TICKER_TO_COMPANY:
+            return INDIAN_TICKER_TO_COMPANY[ticker_upper]
+        if ticker_upper in self.TICKER_TO_COMPANY:
+            return self.TICKER_TO_COMPANY[ticker_upper]
         # Try to fetch from yfinance
         try:
-            stock = yf.Ticker(ticker)
+            stock = yf.Ticker(ticker_upper)
             info = stock.info
-            return info.get("longName") or info.get("shortName") or ticker
+            return info.get("longName") or info.get("shortName") or ticker_upper
         except Exception:
-            return ticker
+            return ticker_upper
 
-    def extract_ticker_with_confidence(self, query: str) -> TickerExtractionResult:
+    def extract_ticker_with_confidence(self, query: str, market: str = "US") -> TickerExtractionResult:
         """
         Enhanced ticker extraction that returns confidence scores and suggestions.
 
@@ -261,6 +270,7 @@ class MarketDataService:
 
         Args:
             query: User's prediction query
+            market: Market context ("US" or "IN")
 
         Returns:
             TickerExtractionResult with confidence info
@@ -271,10 +281,28 @@ class MarketDataService:
 
         suggestions = []
 
+        # Strategy 0 (India): Check Indian company names first
+        if market == "IN":
+            for company_name, ticker in INDIAN_COMPANY_TO_TICKER.items():
+                if company_name in query_lower:
+                    company_display = self.get_company_name(ticker, market)
+                    self.logger.debug(
+                        "Indian ticker found via company name",
+                        company=company_name,
+                        ticker=ticker,
+                    )
+                    return TickerExtractionResult(
+                        ticker=ticker,
+                        company_name=company_display,
+                        confidence=0.95,
+                        needs_confirmation=False,
+                        message=None,
+                    )
+
         # Strategy 1: Check company names first (high confidence)
         for company_name, ticker in self.COMPANY_TO_TICKER.items():
             if company_name in query_lower:
-                company_display = self.get_company_name(ticker)
+                company_display = self.get_company_name(ticker, market)
                 self.logger.debug(
                     "Ticker found via company name",
                     company=company_name,
@@ -288,12 +316,25 @@ class MarketDataService:
                     message=None,
                 )
 
-        # Strategy 2: Check for $ prefix (very high confidence)
-        dollar_match = re.search(r"\$([A-Z]{1,5})\b", query_upper)
+        # Strategy 2: Check for $ or ₹ prefix (very high confidence)
+        dollar_match = re.search(r"[\$\u20b9]([A-Z]{1,5})\b", query_upper)
         if dollar_match:
             ticker = dollar_match.group(1)
+            # For India market, append .NS suffix if not already present
+            if market == "IN" and not ticker.endswith(".NS"):
+                ticker_in = f"{ticker}.NS"
+                if ticker_in in INDIAN_POPULAR_TICKERS or self._quick_validate_ticker(ticker_in):
+                    company_name = self.get_company_name(ticker_in, market)
+                    self.logger.debug("Indian ticker found via currency prefix", ticker=ticker_in)
+                    return TickerExtractionResult(
+                        ticker=ticker_in,
+                        company_name=company_name,
+                        confidence=1.0,
+                        needs_confirmation=False,
+                        message=None,
+                    )
             if self._quick_validate_ticker(ticker):
-                company_name = self.get_company_name(ticker)
+                company_name = self.get_company_name(ticker, market)
                 self.logger.debug("Ticker found via $ prefix", ticker=ticker)
                 return TickerExtractionResult(
                     ticker=ticker,
@@ -304,31 +345,63 @@ class MarketDataService:
                 )
 
         # Strategy 3: Check for tickers in parentheses (very high confidence)
-        paren_match = re.search(r"\(([A-Z]{1,5})\)", query_upper)
+        paren_match = re.search(r"\(([A-Z]{1,10})\)", query_upper)
         if paren_match:
             ticker = paren_match.group(1)
-            if ticker not in self.EXCLUDED_WORDS and self._quick_validate_ticker(ticker):
-                company_name = self.get_company_name(ticker)
-                self.logger.debug("Ticker found in parentheses", ticker=ticker)
-                return TickerExtractionResult(
-                    ticker=ticker,
-                    company_name=company_name,
-                    confidence=1.0,  # Very high confidence for explicit parentheses
-                    needs_confirmation=False,
-                    message=None,
-                )
+            if ticker not in self.EXCLUDED_WORDS:
+                # For India market, try with .NS suffix
+                if market == "IN" and not ticker.endswith(".NS"):
+                    ticker_in = f"{ticker}.NS"
+                    if ticker_in in INDIAN_POPULAR_TICKERS or self._quick_validate_ticker(ticker_in):
+                        company_name = self.get_company_name(ticker_in, market)
+                        self.logger.debug("Indian ticker found in parentheses", ticker=ticker_in)
+                        return TickerExtractionResult(
+                            ticker=ticker_in,
+                            company_name=company_name,
+                            confidence=1.0,
+                            needs_confirmation=False,
+                            message=None,
+                        )
+                if self._quick_validate_ticker(ticker):
+                    company_name = self.get_company_name(ticker, market)
+                    self.logger.debug("Ticker found in parentheses", ticker=ticker)
+                    return TickerExtractionResult(
+                        ticker=ticker,
+                        company_name=company_name,
+                        confidence=1.0,  # Very high confidence for explicit parentheses
+                        needs_confirmation=False,
+                        message=None,
+                    )
 
         # Strategy 4: Match popular tickers (medium-high confidence)
-        sorted_tickers = sorted(self.POPULAR_TICKERS, key=len, reverse=True)
+        # For India market, also check Indian popular tickers
+        popular = INDIAN_POPULAR_TICKERS if market == "IN" else self.POPULAR_TICKERS
+        sorted_tickers = sorted(popular, key=len, reverse=True)
         for ticker in sorted_tickers:
             pattern = rf"\b{re.escape(ticker)}\b"
             if re.search(pattern, query_upper):
-                company_name = self.get_company_name(ticker)
+                company_name = self.get_company_name(ticker, market)
                 self.logger.debug("Ticker found via popular match", ticker=ticker)
                 return TickerExtractionResult(
                     ticker=ticker,
                     company_name=company_name,
                     confidence=0.85,  # Good confidence for popular ticker match
+                    needs_confirmation=False,
+                    message=None,
+                )
+
+        # Also check the other market's popular tickers as fallback
+        fallback_popular = self.POPULAR_TICKERS if market == "IN" else INDIAN_POPULAR_TICKERS
+        sorted_fallback = sorted(fallback_popular, key=len, reverse=True)
+        for ticker in sorted_fallback:
+            pattern = rf"\b{re.escape(ticker)}\b"
+            if re.search(pattern, query_upper):
+                company_name = self.get_company_name(ticker, market)
+                self.logger.debug("Ticker found via fallback popular match", ticker=ticker)
+                return TickerExtractionResult(
+                    ticker=ticker,
+                    company_name=company_name,
+                    confidence=0.80,
                     needs_confirmation=False,
                     message=None,
                 )
@@ -339,8 +412,22 @@ class MarketDataService:
 
         for ticker in potential_tickers:
             if ticker not in self.EXCLUDED_WORDS:
+                # For India market, try with .NS suffix first
+                if market == "IN":
+                    ticker_in = f"{ticker}.NS"
+                    if ticker_in in INDIAN_POPULAR_TICKERS or self._quick_validate_ticker(ticker_in):
+                        company_name = self.get_company_name(ticker_in, market)
+                        valid_candidates.append(
+                            TickerSuggestion(
+                                ticker=ticker_in,
+                                company_name=company_name,
+                                confidence=0.6,
+                                match_reason="Pattern match - found ticker-like text in query",
+                            )
+                        )
+                        continue
                 if self._quick_validate_ticker(ticker):
-                    company_name = self.get_company_name(ticker)
+                    company_name = self.get_company_name(ticker, market)
                     valid_candidates.append(
                         TickerSuggestion(
                             ticker=ticker,
@@ -373,6 +460,7 @@ class MarketDataService:
             )
 
         # No ticker found
+        example_tickers = "RELIANCE, TCS, INFY" if market == "IN" else "AAPL, TSLA, NVDA"
         self.logger.warning("Could not extract ticker from query", query=query[:50])
         return TickerExtractionResult(
             ticker=None,
@@ -380,21 +468,22 @@ class MarketDataService:
             confidence=0.0,
             needs_confirmation=True,
             suggestions=[],
-            message="Could not identify a stock ticker in your question. Please specify a ticker symbol (e.g., AAPL, TSLA, NVDA).",
+            message=f"Could not identify a stock ticker in your question. Please specify a ticker symbol (e.g., {example_tickers}).",
         )
 
-    def extract_ticker_from_query(self, query: str) -> Optional[str]:
+    def extract_ticker_from_query(self, query: str, market: str = "US") -> Optional[str]:
         """
         Smart ticker extraction from natural language query.
 
         Uses multiple strategies:
         1. Instrument detector (crypto, forex, commodities, indices, futures, bonds)
-        2. Company name matching
+        2. Company name matching (Indian first if market=IN)
         3. Direct ticker matching with word boundaries
         4. Pattern-based extraction with validation
 
         Args:
             query: User's prediction query
+            market: Market context ("US" or "IN")
 
         Returns:
             Extracted ticker symbol or None
@@ -413,6 +502,17 @@ class MarketDataService:
             )
             return instrument.symbol
 
+        # Strategy 0.5 (India): Check Indian company names first
+        if market == "IN":
+            for company_name, ticker in INDIAN_COMPANY_TO_TICKER.items():
+                if company_name in query_lower:
+                    self.logger.debug(
+                        "Indian ticker found via company name",
+                        company=company_name,
+                        ticker=ticker,
+                    )
+                    return ticker
+
         # Strategy 1: Check company names first (most user-friendly)
         for company_name, ticker in self.COMPANY_TO_TICKER.items():
             if company_name in query_lower:
@@ -423,35 +523,64 @@ class MarketDataService:
                 )
                 return ticker
 
-        # Strategy 2: Check for explicit ticker mentions with $ prefix
-        dollar_match = re.search(r"\$([A-Z]{1,5})\b", query_upper)
+        # Strategy 2: Check for explicit ticker mentions with $ or ₹ prefix
+        dollar_match = re.search(r"[\$\u20b9]([A-Z]{1,5})\b", query_upper)
         if dollar_match:
             ticker = dollar_match.group(1)
+            # For India market, try with .NS suffix
+            if market == "IN" and not ticker.endswith(".NS"):
+                ticker_in = f"{ticker}.NS"
+                if ticker_in in INDIAN_POPULAR_TICKERS or self._quick_validate_ticker(ticker_in):
+                    self.logger.debug("Indian ticker found via currency prefix", ticker=ticker_in)
+                    return ticker_in
             if self._quick_validate_ticker(ticker):
                 self.logger.debug("Ticker found via $ prefix", ticker=ticker)
                 return ticker
 
         # Strategy 3: Check for tickers in parentheses like "(KTOS)" or "(AAPL)"
-        # This is high priority since it's an explicit user reference
-        paren_match = re.search(r"\(([A-Z]{1,5})\)", query_upper)
+        paren_match = re.search(r"\(([A-Z]{1,10})\)", query_upper)
         if paren_match:
             ticker = paren_match.group(1)
-            if ticker not in self.EXCLUDED_WORDS and self._quick_validate_ticker(ticker):
-                self.logger.debug("Ticker found in parentheses", ticker=ticker)
-                return ticker
+            if ticker not in self.EXCLUDED_WORDS:
+                # For India market, try with .NS suffix
+                if market == "IN" and not ticker.endswith(".NS"):
+                    ticker_in = f"{ticker}.NS"
+                    if ticker_in in INDIAN_POPULAR_TICKERS or self._quick_validate_ticker(ticker_in):
+                        self.logger.debug("Indian ticker found in parentheses", ticker=ticker_in)
+                        return ticker_in
+                if self._quick_validate_ticker(ticker):
+                    self.logger.debug("Ticker found in parentheses", ticker=ticker)
+                    return ticker
 
         # Strategy 4: Match popular tickers with word boundaries (sorted by length)
-        sorted_tickers = sorted(self.POPULAR_TICKERS, key=len, reverse=True)
+        # For India market, check Indian popular tickers first
+        popular = INDIAN_POPULAR_TICKERS if market == "IN" else self.POPULAR_TICKERS
+        sorted_tickers = sorted(popular, key=len, reverse=True)
         for ticker in sorted_tickers:
             pattern = rf"\b{re.escape(ticker)}\b"
             if re.search(pattern, query_upper):
                 self.logger.debug("Ticker found via popular match", ticker=ticker)
                 return ticker
 
+        # Also check fallback market's tickers
+        fallback_popular = self.POPULAR_TICKERS if market == "IN" else INDIAN_POPULAR_TICKERS
+        sorted_fallback = sorted(fallback_popular, key=len, reverse=True)
+        for ticker in sorted_fallback:
+            pattern = rf"\b{re.escape(ticker)}\b"
+            if re.search(pattern, query_upper):
+                self.logger.debug("Ticker found via fallback popular match", ticker=ticker)
+                return ticker
+
         # Strategy 5: Pattern-based extraction for any ticker-like strings
         potential_tickers = re.findall(r"\b([A-Z]{2,5})\b", query_upper)
         for ticker in potential_tickers:
             if ticker not in self.EXCLUDED_WORDS:
+                # For India market, try with .NS suffix first
+                if market == "IN":
+                    ticker_in = f"{ticker}.NS"
+                    if ticker_in in INDIAN_POPULAR_TICKERS or self._quick_validate_ticker(ticker_in):
+                        self.logger.debug("Indian ticker found via pattern", ticker=ticker_in)
+                        return ticker_in
                 if self._quick_validate_ticker(ticker):
                     self.logger.debug("Ticker found via pattern", ticker=ticker)
                     return ticker

@@ -344,6 +344,7 @@ async def get_technical_indicators(ticker: str):
 async def get_stock_news(
     ticker: str,
     limit: int = Query(10, ge=1, le=50, description="Number of articles to return"),
+    market: str = Query("US", description="Market context: US or IN", pattern="^(US|IN)$"),
 ):
     """
     Get recent news articles for a stock.
@@ -351,6 +352,7 @@ async def get_stock_news(
     Args:
         ticker: Stock ticker symbol
         limit: Maximum number of articles
+        market: Market context (US or IN)
 
     Returns:
         List of news articles with sentiment scores
@@ -364,6 +366,7 @@ async def get_stock_news(
         ticker,
         company_name,
         limit=limit,
+        market=market,
     )
 
     sentiment = news_service.calculate_news_sentiment(articles)
@@ -385,12 +388,16 @@ async def get_stock_news(
 
 
 @router.get("/stock/{ticker}/social", tags=["Market Data"])
-async def get_social_sentiment(ticker: str):
+async def get_social_sentiment(
+    ticker: str,
+    market: str = Query("US", description="Market context: US or IN", pattern="^(US|IN)$"),
+):
     """
     Get social media sentiment for a stock.
 
     Args:
         ticker: Stock ticker symbol
+        market: Market context (US or IN)
 
     Returns:
         Social sentiment data from multiple platforms
@@ -403,6 +410,7 @@ async def get_social_sentiment(ticker: str):
     social_data = await social_service.get_social_sentiment(
         ticker,
         company_name,
+        market=market,
     )
 
     aggregate = social_service.calculate_aggregate_sentiment(social_data)
@@ -432,17 +440,19 @@ async def get_social_sentiment(ticker: str):
 @router.get("/extract-ticker", tags=["Utilities"])
 async def extract_ticker_from_text(
     text: str = Query(..., description="Text to extract ticker from"),
+    market: str = Query("US", description="Market context: US or IN", pattern="^(US|IN)$"),
 ):
     """
     Extract a stock ticker from natural language text.
 
     Args:
         text: Text that may contain a ticker symbol
+        market: Market context (US or IN)
 
     Returns:
         Extracted ticker or null
     """
-    ticker = market_data_service.extract_ticker_from_query(text)
+    ticker = market_data_service.extract_ticker_from_query(text, market=market)
 
     return {
         "input": text,
@@ -454,6 +464,7 @@ async def extract_ticker_from_text(
 @router.get("/validate-ticker", response_model=TickerExtractionResult, tags=["Utilities"])
 async def validate_ticker_extraction(
     query: str = Query(..., description="Query to extract and validate ticker from"),
+    market: str = Query("US", description="Market context: US or IN", pattern="^(US|IN)$"),
 ):
     """
     Extract and validate a stock ticker from a query with confidence information.
@@ -468,25 +479,36 @@ async def validate_ticker_extraction(
 
     Args:
         query: The prediction query to analyze
+        market: Market context (US or IN)
 
     Returns:
         TickerExtractionResult with confidence info and suggestions
     """
-    result = market_data_service.extract_ticker_with_confidence(query)
+    result = market_data_service.extract_ticker_with_confidence(query, market=market)
     return result
 
 
 @router.get("/popular-tickers", tags=["Utilities"])
-async def get_popular_tickers():
+async def get_popular_tickers(
+    market: str = Query("US", description="Market context: US or IN", pattern="^(US|IN)$"),
+):
     """
     Get a list of popular stock tickers.
+
+    Args:
+        market: Market context (US or IN)
 
     Returns:
         List of commonly traded tickers
     """
+    if market == "IN":
+        from backend.app.services.market_config import INDIAN_POPULAR_TICKERS
+        tickers = INDIAN_POPULAR_TICKERS
+    else:
+        tickers = market_data_service.POPULAR_TICKERS
     return {
-        "tickers": sorted(list(market_data_service.POPULAR_TICKERS)),
-        "count": len(market_data_service.POPULAR_TICKERS),
+        "tickers": sorted(list(tickers)),
+        "count": len(tickers),
     }
 
 
@@ -1271,8 +1293,9 @@ async def analyze_query(request: AnalyzeQueryRequest):
     issues, and AI-generated improvement suggestions.
     """
     query = request.query.strip()
+    market = getattr(request, "market", "US")
 
-    result = await query_analyzer.analyze(query)
+    result = await query_analyzer.analyze(query, market=market)
     return {
         "category": result.category,
         "can_proceed": result.can_proceed,
