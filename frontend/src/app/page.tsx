@@ -1141,7 +1141,7 @@ export default function Home() {
                   Ready to See the Future?
                 </h3>
                 <p className="text-slate-300 mb-8 text-lg">
-                  Ask Clarividex about any US, Indian, or UAE stock. No signup required.
+                  Ask Clarividex about any {market === "IN" ? "Indian" : "US"} stock. No signup required.
                 </p>
                 <button
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}

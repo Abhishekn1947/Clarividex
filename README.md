@@ -29,7 +29,7 @@
   <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Gemini_API-Google-4285F4?style=flat-square&logo=google" alt="Gemini">
-  <img src="https://img.shields.io/badge/Markets-US%20%2B%20India%20%2B%20UAE-orange?style=flat-square" alt="Markets">
+  <img src="https://img.shields.io/badge/Markets-US%20%2B%20India-orange?style=flat-square" alt="Markets">
   <img src="https://img.shields.io/badge/AWS-Lambda%20%2B%20CloudFront-FF9900?style=flat-square&logo=amazonaws" alt="AWS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
 </p>
@@ -94,18 +94,18 @@
 
 ## Supported Markets
 
-Clarividex supports **three major markets** with a single toggle in the UI:
+Clarividex supports **two major markets** with a single toggle in the UI:
 
-| Feature | US Market | India Market (NSE/BSE) | UAE Market (DFM/ADX) |
-|---------|-----------|----------------------|---------------------|
-| **Tickers** | AAPL, NVDA, TSLA, 160+ stocks | RELIANCE.NS, TCS.NS, INFY.NS, 40+ stocks | EMAAR, FAB, ETISALAT |
-| **Currency** | USD ($) | INR (₹) | AED (د.إ) |
-| **News Locale** | US English, CNBC, MarketWatch | India English, Economic Times | UAE English, Gulf News |
-| **Sentiment** | r/wallstreetbets, r/stocks | r/IndianStreetBets, r/IndiaInvestments | Regional sentiment |
-| **Volatility** | VIX (^VIX) | India VIX (^INDIAVIX) | Regional volatility |
-| **Indices** | S&P 500, Dow Jones, NASDAQ | Nifty 50, Sensex, Bank Nifty | DFM General Index, ADX |
-| **Filings** | SEC EDGAR, Finviz | *(skipped — not available)* | *(skipped — not available)* |
-| **Fear & Greed** | CNN Fear & Greed Index | *(skipped — US-only)* | *(skipped — US-only)* |
+| Feature | US Market | India Market (NSE/BSE) |
+|---------|-----------|----------------------|
+| **Tickers** | AAPL, NVDA, TSLA, 160+ stocks | RELIANCE.NS, TCS.NS, INFY.NS, 40+ stocks |
+| **Currency** | USD ($) | INR (₹) |
+| **News Locale** | US English, CNBC, MarketWatch | India English, Economic Times |
+| **Sentiment** | r/wallstreetbets, r/stocks | r/IndianStreetBets, r/IndiaInvestments |
+| **Volatility** | VIX (^VIX) | India VIX (^INDIAVIX) |
+| **Indices** | S&P 500, Dow Jones, NASDAQ | Nifty 50, Sensex, Bank Nifty |
+| **Filings** | SEC EDGAR, Finviz | *(skipped — not available)* |
+| **Fear & Greed** | CNN Fear & Greed Index | *(skipped — US-only)* |
 
 **Cross-market detection**: Query an Indian stock while on the US tab? Clarividex suggests switching automatically.
 
