@@ -1,10 +1,65 @@
 # Clarividex V2 Enhancements
 
-This document describes the 7 enhancements introduced in V2 of the Clarividex platform.
+This document describes the 8 enhancements introduced in V2 of the Clarividex platform.
 
 ---
 
-## 1. Prompt Versioning
+## 1. India Market Support (NSE/BSE)
+
+**Location:** Full stack — `backend/app/services/market_config.py` + all services + frontend
+
+Full support for Indian stock market predictions alongside US stocks. A `market` parameter (`"US"` | `"IN"`) flows through the entire stack, adapting data sources, currency, news locale, and sentiment sources.
+
+### Architecture
+
+```
+Frontend (market selector toggle in navbar)
+  → API calls include `market` param
+    → Backend services adapt per market
+      → yfinance (.NS suffix for India)
+      → Google News (India locale: hl=en-IN&gl=IN)
+      → Skip US-only sources (SEC, Finviz, CNN F&G)
+      → Use India VIX instead of US VIX
+      → Indian subreddits (r/IndianStreetBets)
+```
+
+### Market Configuration (`market_config.py`)
+
+| Setting | US | India |
+|---------|-----|-------|
+| Currency | $ (USD) | ₹ (INR) |
+| News locale | `hl=en-US&gl=US` | `hl=en-IN&gl=IN` |
+| VIX ticker | `^VIX` | `^INDIAVIX` |
+| Main indices | ^GSPC, ^DJI, ^IXIC | ^NSEI, ^BSESN, ^NSEBANK |
+| Ticker suffix | *(none)* | `.NS` |
+| SEC filings | Yes | No |
+| Finviz | Yes | No |
+| Subreddits | r/investing, r/stocks, r/wallstreetbets | r/IndianStreetBets, r/IndiaInvestments |
+| Fear & Greed | Yes (CNN) | No |
+
+### Indian Companies Supported (~40)
+
+Reliance, TCS, Infosys, HDFC Bank, ICICI Bank, SBI, Bharti Airtel, ITC, L&T, Wipro, Maruti Suzuki, Axis Bank, Kotak Bank, HUL, Sun Pharma, Asian Paints, Titan, Bajaj Finance, Adani Enterprises, NTPC, Power Grid, Coal India, ONGC, Tech Mahindra, HCL Tech, and more.
+
+### Frontend Features
+
+- **Market selector toggle** in the header nav (US/India flag icons)
+- **Cross-market detection**: If a user queries an Indian stock while on US mode (or vice versa), a suggestion banner offers to switch markets
+- **Market timing info bar**: Shows market hours (NYSE/NASDAQ or NSE/BSE), short/long-term prediction notes, data freshness warnings
+- **Market-specific examples**: Query placeholders and example buttons change per market
+- **Currency formatting**: ₹ for Indian stocks, $ for US stocks throughout the UI
+
+### Files Modified
+
+**Backend (10 files):**
+- `market_config.py` (new), `schemas.py`, `market_data.py`, `news_service.py`, `data_aggregator.py`, `additional_data_sources.py`, `social_service.py`, `prediction_engine.py`, `routes.py`, `stream_service.py`
+
+**Frontend (5 files):**
+- `page.tsx`, `PredictionForm.tsx`, `PredictionResult.tsx`, `api.ts`, `utils.ts`
+
+---
+
+## 2. Prompt Versioning
 
 **Location:** `backend/app/prompts/`
 
@@ -33,7 +88,7 @@ YAML-based prompt template system with version control, allowing A/B testing and
 
 ---
 
-## 2. RAG-Powered Chat
+## 3. RAG-Powered Chat
 
 **Location:** `backend/app/rag/`
 
@@ -68,7 +123,7 @@ When a user asks a methodology-related question in the chat (detected by keyword
 
 ---
 
-## 3. Output Guardrails
+## 4. Output Guardrails
 
 **Location:** `backend/app/guardrails/`
 
@@ -91,7 +146,7 @@ Four output guards that validate and sanitize every prediction and chat response
 
 ---
 
-## 4. SSE Streaming
+## 5. SSE Streaming
 
 **Location:** `backend/app/services/stream_service.py`, `frontend/src/lib/api.ts`
 
@@ -125,7 +180,7 @@ Server-Sent Events (SSE) streaming for real-time prediction progress updates.
 
 ---
 
-## 5. Singleton Caching Fix
+## 6. Singleton Caching Fix
 
 **Location:** `backend/app/api/routes.py`
 
@@ -145,7 +200,7 @@ This eliminates redundant client instantiation and ensures consistent API key ma
 
 ---
 
-## 6. Evaluation Suite
+## 7. Evaluation Suite
 
 **Location:** `backend/app/evals/`
 
@@ -179,7 +234,7 @@ GET /api/v1/eval/run
 
 ---
 
-## 7. Mobile Responsiveness
+## 8. Mobile Responsiveness
 
 **Location:** All frontend components (`frontend/src/`)
 

@@ -122,6 +122,9 @@ aws lambda update-function-code --function-name clarividex-prod --image-uri <ECR
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `APP_SECRET_KEY` | Application secret |
 | `LAMBDA_FUNCTION_URL` | Lambda Function URL (for NEXT_PUBLIC_API_URL) |
+| `S3_BUCKET` | S3 bucket name for frontend static assets |
+| `CLOUDFRONT_DISTRIBUTION_ID` | CloudFront distribution ID for cache invalidation |
+| `LAMBDA_FUNCTION_NAME` | Lambda function name (e.g., `clarividex-prod`) |
 
 ---
 

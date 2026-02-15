@@ -15,7 +15,7 @@ Clarividex (The Clairvoyant Index) is an AI-powered financial prediction platfor
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  FRONTEND (Next.js 14 — Responsive)               │
+│              FRONTEND (Next.js 16 — Responsive, US+India)          │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────────┐ │
 │  │   Search    │ │  Prediction │ │   Loading   │ │    How It  │ │
 │  │    Form     │ │    Result   │ │  Skeleton   │ │    Works   │ │
@@ -27,15 +27,15 @@ Clarividex (The Clairvoyant Index) is an AI-powered financial prediction platfor
 │                      BACKEND (FastAPI + Python 3.12)            │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                     API Routes (/api/v1)                 │   │
-│  │  /predict  /health  /stock/{ticker}/*  /history  /accuracy  │
+│  │  /predict  /health  /stock/{ticker}/*  /chat  /analyze-query │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                │                                 │
 │  ┌─────────────────────────────┴─────────────────────────────┐ │
 │  │                    PREDICTION ENGINE                       │ │
 │  │  ┌──────────────┐  ┌───────────────┐  ┌────────────────┐  │ │
-│  │  │    Data      │  │  AI Analysis  │  │   Prediction   │  │ │
-│  │  │  Aggregator  │  │   (Claude/    │  │    History     │  │ │
-│  │  │              │  │    Ollama)    │  │    (SQLite)    │  │ │
+│  │  │    Data      │  │  AI Analysis  │  │   Market       │  │ │
+│  │  │  Aggregator  │  │   (Gemini/   │  │    Config      │  │ │
+│  │  │              │  │   Fallback)   │  │   (US/India)   │  │ │
 │  │  └──────────────┘  └───────────────┘  └────────────────┘  │ │
 │  └───────────────────────────────────────────────────────────┘ │
 │                                │                                 │
@@ -53,15 +53,16 @@ Clarividex (The Clairvoyant Index) is an AI-powered financial prediction platfor
 ┌───────────────┐      ┌───────────────┐      ┌───────────────┐
 │  FREE APIs    │      │  PREMIUM APIs │      │   AI Models   │
 │               │      │   (Optional)  │      │               │
-│ - Yahoo       │      │ - Finnhub     │      │ - Claude API  │
-│   Finance     │      │ - Alpha       │      │   (Primary)   │
-│ - Google News │      │   Vantage     │      │ - Ollama      │
+│ - Yahoo       │      │ - Finnhub     │      │ - Gemini 2.0  │
+│   Finance     │      │ - Alpha       │      │   Flash       │
+│ - Google News │      │   Vantage     │      │   (Primary)   │
+│   (US+India)  │      │               │      │ - Rule-Based  │
 │ - SEC EDGAR   │      │               │      │   (Fallback)  │
 │ - StockTwits  │      │               │      │               │
 │ - Reddit      │      │               │      │               │
-│ - Finviz      │      │               │      │               │
-│ - VIX         │      │               │      │               │
-│ - Fear&Greed  │      │               │      │               │
+│ - Finviz (US) │      │               │      │               │
+│ - VIX/India   │      │               │      │               │
+│   VIX         │      │               │      │               │
 └───────────────┘      └───────────────┘      └───────────────┘
 ```
 
@@ -70,48 +71,47 @@ Clarividex (The Clairvoyant Index) is an AI-powered financial prediction platfor
 ## Tech Stack
 
 ### Frontend
-- **Framework:** Next.js 14.2.5
-- **Language:** TypeScript 5.5.4
-- **Styling:** TailwindCSS 3.4.10 (mobile-first responsive)
-- **Charts:** Recharts 2.12.7
-- **HTTP Client:** Axios 1.7.4
+- **Framework:** Next.js 16 (static export)
+- **Language:** TypeScript 5
+- **Styling:** TailwindCSS 4 (mobile-first responsive)
+- **Charts:** Recharts
+- **Hosting:** S3 + CloudFront
 - **Responsive:** Full mobile support from 320px (iPhone SE) to 1024px+
 
 ### Backend
-- **Framework:** FastAPI 0.115.0
-- **Server:** Uvicorn 0.30.6
+- **Framework:** FastAPI 0.115
 - **Language:** Python 3.12
-- **Database:** SQLite (local), PostgreSQL (production)
-- **Cache:** Redis 7-alpine
+- **Deployment:** AWS Lambda (Docker, Mangum adapter)
+- **Markets:** US + India (NSE/BSE)
 
 ### AI Models
-- **Primary:** Claude API (claude-sonnet-4-20250514)
-- **Fallback:** Ollama (llama3.1, mistral, deepseek-r1)
-- **Last Resort:** Rule-based engine
+- **Primary:** Gemini 2.0 Flash (Google)
+- **Fallback:** Rule-based 8-factor engine
+- **Architecture:** Hot-swappable — supports Claude Opus 4.6, GPT-4o, or any frontier model
 
 ---
 
 ## Data Sources (12+ APIs)
 
 ### Market Data
-| Source | Data Type | Update Frequency |
-|--------|-----------|------------------|
-| **Yahoo Finance (yfinance)** | Real-time quotes, historical prices, company info | Real-time |
-| **Finviz** | Stock screener data, target prices, analyst ratings | Daily |
-| **VIX Index** | Market volatility/fear indicator | Real-time |
+| Source | Data Type | Markets | Update Frequency |
+|--------|-----------|---------|------------------|
+| **Yahoo Finance (yfinance)** | Real-time quotes, historical prices, company info | US + India (.NS) | Real-time |
+| **Finviz** | Stock screener data, target prices, analyst ratings | US only | Daily |
+| **VIX / India VIX** | Market volatility/fear indicator | US: ^VIX, India: ^INDIAVIX | Real-time |
 
 ### News & Sentiment
-| Source | Data Type | Update Frequency |
-|--------|-----------|------------------|
-| **Google News RSS** | Latest news articles | Real-time |
-| **SEC EDGAR** | Official SEC filings (10-K, 10-Q, 8-K) | As filed |
-| **CNN Fear & Greed Index** | Market sentiment indicator (0-100) | Daily |
+| Source | Data Type | Markets | Update Frequency |
+|--------|-----------|---------|------------------|
+| **Google News RSS** | Latest news articles | US locale + India locale | Real-time |
+| **SEC EDGAR** | Official SEC filings (10-K, 10-Q, 8-K) | US only | As filed |
+| **CNN Fear & Greed Index** | Market sentiment indicator (0-100) | US only | Daily |
 
 ### Social Media
-| Source | Data Type | Update Frequency |
-|--------|-----------|------------------|
-| **StockTwits** | Social sentiment, trending stocks | Real-time |
-| **Reddit (r/wallstreetbets, r/stocks)** | Retail sentiment, mentions | Real-time |
+| Source | Data Type | Markets | Update Frequency |
+|--------|-----------|---------|------------------|
+| **StockTwits** | Social sentiment, trending stocks | US + India (limited) | Real-time |
+| **Reddit** | Retail sentiment, mentions | US: r/wallstreetbets, r/stocks; India: r/IndianStreetBets, r/IndiaInvestments | Real-time |
 
 ---
 
@@ -142,10 +142,10 @@ npm run dev
 ### Environment Variables
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | No* | Claude API for AI analysis |
+| `GEMINI_API_KEY` | Yes | Google Gemini API for AI analysis |
 | `FINNHUB_API_KEY` | No | Additional market data |
 
-*System falls back to Ollama if no API key provided
+*System falls back to rule-based engine if Gemini is unavailable
 
 ---
 
@@ -189,7 +189,7 @@ npm run dev
 | [PREDICTION_ENGINE.md](./PREDICTION_ENGINE.md) | Algorithms and mathematical models |
 | [METHODOLOGY.md](./METHODOLOGY.md) | How predictions are generated |
 | [TECHNICAL_INDICATORS.md](./TECHNICAL_INDICATORS.md) | RSI, MACD, Moving Averages explained |
-| [ENHANCEMENTS.md](./ENHANCEMENTS.md) | V2 enhancements: RAG, guardrails, SSE, mobile responsive |
+| [ENHANCEMENTS.md](./ENHANCEMENTS.md) | V2 enhancements: India market, RAG, guardrails, SSE, mobile responsive |
 
 ---
 
@@ -212,4 +212,4 @@ MIT License - Free to use, modify, and distribute.
 
 ---
 
-*Last updated: February 12, 2026*
+*Last updated: February 14, 2026*

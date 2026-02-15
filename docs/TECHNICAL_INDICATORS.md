@@ -230,4 +230,4 @@ When multiple indicators agree:
 
 ---
 
-*Last Updated: January 2026*
+*Last Updated: February 2026*

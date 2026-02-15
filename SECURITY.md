@@ -4,6 +4,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 2.0.x   | :white_check_mark: |
 | 1.0.x   | :white_check_mark: |
 
 ## Reporting a Vulnerability
@@ -40,11 +41,19 @@ We take the security of Clarividex seriously. If you believe you have found a se
 - Keep dependencies updated
 - Use strong, unique passwords for databases
 - Enable rate limiting to prevent abuse
+- Store infrastructure IDs (S3 bucket, CloudFront distribution, Lambda function name) in GitHub Secrets, not hardcoded in workflow files
 
 ### Data
 - This application processes financial data - never store real trading credentials
 - Be cautious with any personal financial information
 - Review logs to ensure no sensitive data is being logged
+
+### Output Guardrails
+Clarividex includes built-in output safety:
+- **PII Redaction**: Regex-based detection and redaction of emails, phone numbers, SSNs, and credit card numbers in AI responses
+- **Financial Advice Detection**: Flags language that could be construed as personalized financial advice; injects disclaimer
+- **Probability Bounds**: All predictions clamped to 15-85% range — we never claim certainty
+- **Response Quality**: Ensures AI responses meet minimum quality thresholds
 
 ## Acknowledgments
 

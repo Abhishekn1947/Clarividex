@@ -37,7 +37,7 @@ Imagine you want to know: **"Will Tesla hit $300 by June?"**
 
 Here's what Clarividex does in plain English:
 
-1. **Gathers data from 12+ sources** — stock prices, news articles, social media buzz, insider trades, analyst opinions, options markets, economic indicators, and more. Think of it like a detective collecting every clue available.
+1. **Gathers data from 12+ sources** — stock prices, news articles, social media buzz, insider trades, analyst opinions, options markets, economic indicators, and more. Supports both US and Indian (NSE/BSE) markets. Think of it like a detective collecting every clue available.
 
 2. **Runs 8 different prediction algorithms** — each one looks at the question from a different angle. One simulates 2,000 possible futures. Another reads the news to gauge mood. Another checks if chart patterns match historical setups. They're like 8 experts sitting at a table, each with a different specialty.
 
@@ -58,7 +58,8 @@ The result: a probability percentage with a confidence level, a list of supporti
 ║                        CLARIVIDEX PREDICTION PIPELINE                        ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
 
-  USER QUERY: "Will NVDA reach $150 by March 2026?"
+  USER QUERY: "Will NVDA reach $150 by March 2026?"  (US)
+              "Will Reliance reach ₹3000 by June?"   (India)
        │
        ▼
   ┌─────────────────────────────────────────────────────┐
@@ -107,13 +108,12 @@ The result: a probability percentage with a confidence level, a list of supporti
                         │
                         ▼
   ┌─────────────────────────────────────────────────────┐
-  │  STEP 3: AI ANALYSIS (3-tier fallback)              │
+  │  STEP 3: AI ANALYSIS (2-tier fallback)              │
   │                                                     │
-  │  ① Claude API ──fail──▶ ② Ollama ──fail──▶ ③ Rules │
-  │  (best: sees      (local model,     (8-factor       │
-  │   everything,      same prompt)      weighted        │
-  │   reasons over                       scoring)        │
-  │   all data)                                          │
+  │  ① Gemini 2.0 Flash ──fail──▶ ② Rule-Based Engine  │
+  │  (sees everything,             (8-factor weighted   │
+  │   reasons over all data,        scoring, market-    │
+  │   market-aware currency)        aware ₹/$)          │
   └──────────────────────┬──────────────────────────────┘
                          │
                          ▼
@@ -203,7 +203,7 @@ Here's what happens from the moment you type a question:
 **Files:** `routes.py`, `market_data.py`
 
 Your question gets parsed to extract:
-- **What stock?** — We use a multi-strategy ticker extractor that checks company names (~130 mapped), `$TICKER` prefixes, known tickers (~170), and regex patterns. It filters out common English words ("WILL", "THE") that look like tickers but aren't.
+- **What stock?** — We use a multi-strategy ticker extractor that checks company names (~130 US + ~40 Indian companies mapped), `$TICKER` prefixes, known tickers (~170 US + ~40 India), and regex patterns. For Indian market, tickers get `.NS` suffix automatically. It filters out common English words ("WILL", "THE") that look like tickers but aren't.
 - **What price target?** — Extracted from the query text.
 - **By when?** — Parsed into a date to calculate trading days remaining.
 - **Up or down?** — If the target price is above the current price, it's a bullish question. Below = bearish.
@@ -216,10 +216,11 @@ We fire off **12+ data requests simultaneously** (not one after another — all 
 ### Step 3: AI Analysis
 **File:** `prediction_engine.py`
 
-We try three approaches in order:
-1. **Claude AI** — gets ALL the data as context and reasons over it like a human analyst would. This is the most nuanced analysis.
-2. **Ollama (local AI)** — same prompt, but runs on your machine. Used if Claude API is down or unavailable.
-3. **Rule-based scoring** — a deterministic 8-factor weighted formula. Always available as a guaranteed fallback. No AI needed.
+We try two approaches in order:
+1. **Gemini 2.0 Flash** — gets ALL the data as context and reasons over it like a human analyst would. This is the most nuanced analysis. For Indian stocks, the prompt includes CRITICAL currency instructions to use ₹ instead of $.
+2. **Rule-based scoring** — a deterministic 8-factor weighted formula with market-aware currency symbols. Always available as a guaranteed fallback. No AI needed.
+
+The AI backbone is hot-swappable — the architecture supports replacing Gemini with Claude Opus 4.6, GPT-4o, or any frontier model without changing the pipeline.
 
 ### Step 4: Probability Calculation
 **File:** `enhanced_probability_engine.py`
@@ -247,8 +248,8 @@ Think of each data source as a different "expert witness" we consult:
 | **SEC EDGAR** | Official company filings (10-K, 10-Q, 8-K) | `additional_data_sources.py` |
 | **Finviz** | 30+ financial metrics (P/E ratio, short float, target price, etc.) | `additional_data_sources.py` |
 | **CNN/alternative.me** | Fear & Greed Index — is the overall market fearful or greedy? | `additional_data_sources.py` |
-| **VIX (^VIX)** | Market volatility index — how scared/calm is the market? | `additional_data_sources.py` |
-| **Sector ETFs** | How the stock's sector is performing relative to the S&P 500 | `additional_data_sources.py` |
+| **VIX / India VIX** | Market volatility index — US: ^VIX, India: ^INDIAVIX | `additional_data_sources.py` |
+| **Sector ETFs** | How the stock's sector is performing (US: SPY sectors, India: NIFTYBEES) | `additional_data_sources.py` |
 | **Treasury/FRED** | Economic indicators like interest rates | `additional_data_sources.py` |
 
 **Data Quality Score:** Each source gets checked for availability. More sources available = higher data quality score = more confidence in the prediction. The quality score is a weighted sum — core data (prices, history) matters more than nice-to-haves (Google Trends, SEC filings).
@@ -910,7 +911,8 @@ levels all work against this bearish target."
 
 | Module | File | Role |
 |--------|------|------|
-| **Prediction Engine** | `prediction_engine.py` | Main orchestrator — coordinates the entire pipeline |
+| **Prediction Engine** | `prediction_engine.py` | Main orchestrator — coordinates the entire pipeline (market-aware) |
+| **Market Config** | `market_config.py` | Per-market settings (currency, locale, VIX ticker, data source flags) |
 | **Enhanced Probability Engine** | `enhanced_probability_engine.py` | Core math — 8-component statistical ensemble |
 | **Data Aggregator** | `data_aggregator.py` | Concurrent data fetching from 12+ sources |
 | **Market Data Service** | `market_data.py` | Yahoo Finance wrapper, ticker extraction |

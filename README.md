@@ -27,6 +27,7 @@
   <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Gemini_API-Google-4285F4?style=flat-square&logo=google" alt="Gemini">
+  <img src="https://img.shields.io/badge/Markets-US%20%2B%20India-orange?style=flat-square" alt="Markets">
   <img src="https://img.shields.io/badge/AWS-Lambda%20%2B%20CloudFront-FF9900?style=flat-square&logo=amazonaws" alt="AWS">
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
 </p>
@@ -89,6 +90,25 @@
 
 ---
 
+## Supported Markets
+
+Clarividex supports **two major markets** with a single toggle in the UI:
+
+| Feature | US Market | India Market (NSE/BSE) |
+|---------|-----------|----------------------|
+| **Tickers** | AAPL, NVDA, TSLA, 160+ stocks | RELIANCE.NS, TCS.NS, INFY.NS, 40+ stocks |
+| **Currency** | USD ($) | INR (₹) |
+| **News Locale** | US English, CNBC, MarketWatch | India English, Economic Times |
+| **Sentiment** | r/wallstreetbets, r/stocks | r/IndianStreetBets, r/IndiaInvestments |
+| **Volatility** | VIX (^VIX) | India VIX (^INDIAVIX) |
+| **Indices** | S&P 500, Dow Jones, NASDAQ | Nifty 50, Sensex, Bank Nifty |
+| **Filings** | SEC EDGAR, Finviz | *(skipped — not available)* |
+| **Fear & Greed** | CNN Fear & Greed Index | *(skipped — US-only)* |
+
+**Cross-market detection**: Query an Indian stock while on the US tab? Clarividex suggests switching automatically.
+
+---
+
 ## How It Works
 
 ```
@@ -98,6 +118,7 @@
 
      ┌──────────────────────────────────────────────────────────────────┐
      │  USER QUERY: "Will NVDA reach $150 by March 2026?"               │
+     │              "Will Reliance reach ₹3000 by June 2026?"           │
      └────────────────────────────────┬─────────────────────────────────┘
                                       │
                                       ▼
@@ -281,14 +302,14 @@ Clarividex aggregates data from **12+ sources** in real-time:
 │                                                                             │
 │  MARKET DATA                    │  SENTIMENT DATA                           │
 │  ───────────────────────────────┼────────────────────────────────────────   │
-│  • Yahoo Finance (quotes)       │  • Google News RSS                        │
-│  • Finviz (fundamentals)        │  • StockTwits                             │
-│  • VIX Index                    │  • Reddit (WSB, r/stocks)                 │
-│  • Options Flow                 │  • CNN Fear & Greed Index                 │
+│  • Yahoo Finance (quotes)       │  • Google News RSS (US & India locale)    │
+│  • Finviz (US fundamentals)     │  • StockTwits                             │
+│  • VIX / India VIX              │  • Reddit (WSB, IndianStreetBets)         │
+│  • Options Flow                 │  • CNN Fear & Greed Index (US)            │
 │                                 │                                           │
 │  FUNDAMENTAL DATA               │  TECHNICAL DATA                           │
 │  ───────────────────────────────┼────────────────────────────────────────   │
-│  • SEC EDGAR (filings)          │  • RSI, MACD, Bollinger Bands             │
+│  • SEC EDGAR (US filings)       │  • RSI, MACD, Bollinger Bands             │
 │  • Analyst Ratings              │  • Moving Averages (SMA/EMA)              │
 │  • Insider Trading              │  • Support/Resistance Levels              │
 │  • Earnings Calendar            │  • Volume Analysis                        │
@@ -373,6 +394,7 @@ For in-depth technical documentation, see the `/docs` folder:
 ### AI Models
 ```
 Gemini 2.0 Flash (Primary) → Rule-Based Engine (Fallback)
+Architecture supports hot-swapping to Claude Opus 4.6, GPT-4o, or any frontier model
 ```
 
 ### Infrastructure
@@ -495,7 +517,7 @@ terraform init && terraform apply
 | `/api/v1/analyze-query` | POST | Query quality analysis |
 | `/api/v1/validate-ticker` | GET | Ticker extraction & validation |
 | `/api/v1/chat` | POST | AI chat about predictions |
-| `/api/v1/popular-tickers` | GET | List of 160+ supported tickers |
+| `/api/v1/popular-tickers?market=US` | GET | List of supported tickers (US or IN) |
 
 ---
 
@@ -516,6 +538,7 @@ clarividex/
 │   │   ├── models/          # Pydantic schemas
 │   │   ├── services/        # Business logic
 │   │   │   ├── prediction_engine.py
+│   │   │   ├── market_config.py       # Market-specific config (US/India)
 │   │   │   ├── market_data.py
 │   │   │   ├── technical_analysis.py
 │   │   │   ├── news_service.py
@@ -553,10 +576,11 @@ clarividex/
 
 ## V2 Enhancements
 
-Clarividex V2 introduces 7 major enhancements:
+Clarividex V2 introduces 8 major enhancements:
 
 | Enhancement | Description |
 |-------------|-------------|
+| **India Market Support** | Full NSE/BSE support with ₹ currency, India VIX, Indian news/sentiment sources |
 | **Prompt Versioning** | YAML-based prompt templates with A/B testing support |
 | **RAG-Powered Chat** | Documentation-grounded answers via ChromaDB + HuggingFace embeddings |
 | **Output Guardrails** | PII redaction, financial advice detection, probability clamping (15-85%) |
@@ -626,7 +650,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 ### Data Providers
-Yahoo Finance • SEC EDGAR • Finviz • Google News • StockTwits • Reddit
+Yahoo Finance • SEC EDGAR • Finviz • Google News • StockTwits • Reddit • NSE/BSE (via yfinance)
 
 ---
 

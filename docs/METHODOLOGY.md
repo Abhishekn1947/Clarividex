@@ -46,7 +46,8 @@ Clarividex is designed to provide **transparent, data-driven probability assessm
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     USER QUERY                                  │
-│              "Will NVDA reach $150 by March 2026?"              │
+│     "Will NVDA reach $150 by March 2026?"                      │
+│     "Will Reliance reach ₹3000 by June 2026?"                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -71,7 +72,8 @@ Clarividex is designed to provide **transparent, data-driven probability assessm
 │    Types: Stock | Crypto | Forex | Commodity | Index |          │
 │           ETF | Futures | Bond                                  │
 │                                                                 │
-│    Example: "NVDA" ──▶ STOCK ──▶ Symbol: NVDA                   │
+│    Example: "NVDA" ──▶ STOCK ──▶ Symbol: NVDA (US)              │
+│    Example: "Reliance" ──▶ STOCK ──▶ Symbol: RELIANCE.NS (IN)  │
 │    Example: "Bitcoin" ──▶ CRYPTO ──▶ Symbol: BTC-USD            │
 │    Example: "Gold" ──▶ COMMODITY ──▶ Symbol: GC=F               │
 └─────────────────────────────────────────────────────────────────┘
@@ -99,9 +101,8 @@ Clarividex is designed to provide **transparent, data-driven probability assessm
 │                   AI ANALYSIS                                   │
 │                                                                 │
 │         ┌────────────────────────────────────┐                  │
-│         │  Try: Claude API (Primary)         │                  │
-│         │  Fallback: Ollama (Local LLM)      │                  │
-│         │  Last Resort: Rule-Based Engine    │                  │
+│         │  Try: Gemini 2.0 Flash (Primary)   │                  │
+│         │  Fallback: Rule-Based Engine       │                  │
 │         └────────────────────────────────────┘                  │
 │                                                                 │
 │    Applies 8-Factor Weighted Model (see Section 3)              │
@@ -182,7 +183,10 @@ Clarividex is designed to provide **transparent, data-driven probability assessm
 
 ### 3.4 Market Sentiment (12%)
 
-**VIX:**
+**VIX (US) / India VIX (India):**
+
+The volatility index used depends on the selected market. US uses ^VIX, India uses ^INDIAVIX.
+
 | Level | Interpretation | Signal |
 |-------|----------------|--------|
 | < 15 | Low fear | Bullish (+0.30) |
@@ -191,7 +195,7 @@ Clarividex is designed to provide **transparent, data-driven probability assessm
 | 25-30 | High fear | Bearish (-0.30) |
 | > 30 | Extreme fear | Strong Bearish* |
 
-**Fear & Greed Index:**
+**Fear & Greed Index (US only):**
 | Value | Interpretation | Signal |
 |-------|----------------|--------|
 | 0-25 | Extreme Fear | Contrarian Bullish (+0.40) |
@@ -336,22 +340,21 @@ FINAL: 60%
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  1. Claude API Available? ──Yes──▶ Use Claude (Best Quality)   │
+│  1. Gemini 2.0 Flash Available? ──Yes──▶ Use Gemini (Primary)  │
 │           │                                                     │
 │          No                                                     │
 │           ▼                                                     │
-│  2. Ollama Running? ────────Yes──▶ Use Ollama (Good Quality)   │
-│           │                                                     │
-│          No                                                     │
-│           ▼                                                     │
-│  3. Use Rule-Based Engine (Basic Quality)                      │
+│  2. Use Rule-Based Engine (Deterministic Fallback)             │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+The AI backbone is hot-swappable — the architecture supports replacing Gemini with Claude Opus 4.6, GPT-4o, or any frontier model without changing the pipeline.
 
 ---
 
 ## 8. Supported Instruments
 
+### US Market
 | Type | Format | Examples |
 |------|--------|----------|
 | Stocks | TICKER | AAPL, NVDA, TSLA |
@@ -360,6 +363,19 @@ FINAL: 60%
 | Commodities | XX=F | GC=F (gold), CL=F (oil) |
 | Indices | ^XXXX | ^GSPC, ^DJI, ^IXIC |
 | ETFs | TICKER | SPY, QQQ, GLD |
+
+### India Market (NSE/BSE)
+| Type | Format | Examples |
+|------|--------|----------|
+| Stocks | TICKER.NS | RELIANCE.NS, TCS.NS, INFY.NS |
+| Indices | ^XXXX | ^NSEI (Nifty 50), ^BSESN (Sensex), ^NSEBANK (Bank Nifty) |
+
+**Market-specific behavior:**
+- Indian tickers automatically get `.NS` suffix for NSE
+- US-only data sources (SEC EDGAR, Finviz, CNN Fear & Greed) are skipped for Indian stocks
+- India VIX (`^INDIAVIX`) is used instead of US VIX for market sentiment
+- News fetched with Indian locale (`hl=en-IN&gl=IN`)
+- Social sentiment from r/IndianStreetBets and r/IndiaInvestments
 
 ---
 
@@ -400,5 +416,5 @@ FINAL: 60%
 
 ---
 
-*Document Version: 2.0*
-*Last Updated: January 2026*
+*Document Version: 2.1*
+*Last Updated: February 2026*

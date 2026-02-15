@@ -40,7 +40,7 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- Anthropic API key
+- Google Gemini API key ([get one here](https://aistudio.google.com/apikey))
 
 ### Backend Setup
 ```bash
@@ -83,6 +83,16 @@ npm test
 - Use the present tense ("Add feature" not "Added feature")
 - Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
 - Limit the first line to 72 characters or less
+
+## Multi-Market Contributions
+
+Clarividex supports US and India (NSE/BSE) markets. When contributing:
+
+- **Backend changes** should respect the `market` parameter (`"US"` | `"IN"`) that flows through all services
+- **New data sources** should specify which markets they support in `market_config.py`
+- **Indian tickers** use `.NS` suffix (NSE) — handled automatically by `market_data.py`
+- **Currency**: Use the `currency_symbol` from `get_market_config(market)` — never hardcode `$` or `₹`
+- **US-only sources** (SEC EDGAR, Finviz, CNN Fear & Greed) are skipped when `market="IN"`
 
 ## Questions?
 

@@ -18,7 +18,7 @@ on:
 env:
   AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
   APP_NAME: clarividex
-  LAMBDA_FUNCTION: clarividex-prod
+  LAMBDA_FUNCTION: ${{ secrets.LAMBDA_FUNCTION_NAME || 'clarividex-prod' }}
 
 jobs:
   deploy:
