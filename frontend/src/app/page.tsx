@@ -17,6 +17,7 @@ import {
   Layers,
   RefreshCw,
   MessageSquare,
+  Linkedin,
 } from "lucide-react";
 import { PredictionForm } from "@/components/PredictionForm";
 import { PredictionResult } from "@/components/PredictionResult";
@@ -1140,7 +1141,7 @@ export default function Home() {
                   Ready to See the Future?
                 </h3>
                 <p className="text-slate-300 mb-8 text-lg">
-                  Ask Clarividex about any {market === "IN" ? "Indian" : "US"} stock. No signup required.
+                  Ask Clarividex about any US, Indian, or UAE stock. No signup required.
                 </p>
                 <button
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -1175,8 +1176,19 @@ export default function Home() {
               <span>Not financial advice. For informational purposes only.</span>
             </div>
 
-            <div className="text-sm text-slate-400">
-              &copy; {new Date().getFullYear()} Clarividex
+            <div className="flex items-center gap-4">
+              <a
+                href="https://www.linkedin.com/in/abhin1998/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-400 hover:text-blue-600 transition-colors"
+                aria-label="LinkedIn"
+              >
+                <Linkedin className="w-5 h-5" />
+              </a>
+              <span className="text-sm text-slate-400">
+                &copy; {new Date().getFullYear()} Clarividex
+              </span>
             </div>
           </div>
         </div>
