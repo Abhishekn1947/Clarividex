@@ -19,8 +19,8 @@ Browser
 | Resource | URL |
 |----------|-----|
 | Frontend | `https://dy9y276gfap4k.cloudfront.net` |
-| API | `https://iqi7i4npsgrpf4otdpraqguefy0usjxv.lambda-url.us-east-1.on.aws` |
-| Health Check | `https://iqi7i4npsgrpf4otdpraqguefy0usjxv.lambda-url.us-east-1.on.aws/api/v1/health` |
+| API | *(Lambda Function URL — see `terraform output` or AWS Console)* |
+| Health Check | *(API URL + `/api/v1/health`)* |
 
 ---
 

@@ -13,6 +13,7 @@
 </p>
 
 <p align="center">
+  <a href="https://dy9y276gfap4k.cloudfront.net"><strong>Live Demo</strong></a> •
   <a href="#why-clarividex">Why Clarividex</a> •
   <a href="#how-it-works">How It Works</a> •
   <a href="#prediction-engine">Prediction Engine</a> •
@@ -297,6 +298,14 @@ Clarividex aggregates data from **12+ sources** in real-time:
 
 ---
 
+## Live Application
+
+> **Try it now**: [https://dy9y276gfap4k.cloudfront.net](https://dy9y276gfap4k.cloudfront.net)
+
+Hosted on AWS — fully serverless architecture with S3 + CloudFront (frontend) and Lambda (backend). Runs at ~$0/month under free tier.
+
+---
+
 ## Demo
 
 ### Screenshots
@@ -373,6 +382,39 @@ Backend:   ECR → Lambda (Function URL, public HTTPS)
 IaC:       Terraform (modules: ecr, lambda, frontend, secrets, monitoring, warmup)
 CI/CD:     GitHub Actions (test on PR, deploy on push to main)
 ```
+
+### AWS Serverless Deployment
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PRODUCTION ARCHITECTURE                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Browser                                                                    │
+│    │                                                                        │
+│    ├── Static assets ──→ CloudFront (CDN) ──→ S3 (private bucket, OAC)     │
+│    │                     • PriceClass_100 (US/Canada/Europe)                │
+│    │                     • SPA routing via CloudFront Function              │
+│    │                     • Immutable caching for hashed assets              │
+│    │                                                                        │
+│    └── API calls ──────→ Lambda Function URL (direct HTTPS)                │
+│                          • FastAPI in Docker (ECR image)                    │
+│                          • Mangum adapter for Lambda compatibility          │
+│                          • CORS handled by FastAPI middleware               │
+│                          • EventBridge warmup every 5 minutes              │
+│                                                                             │
+│  Supporting Services:                                                       │
+│    • SSM Parameter Store — API keys & secrets                              │
+│    • CloudWatch — alarms & logging                                         │
+│    • SNS — email alerts                                                    │
+│                                                                             │
+│  Cost: ~$0/month (free tier) │ ~$3-10/month (post free tier)               │
+│  No EC2, no ALB, no RDS — fully serverless                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Managed entirely with **Terraform** (~27 resources across 6 modules) and deployed via **GitHub Actions** CI/CD pipelines.
 
 ---
 
