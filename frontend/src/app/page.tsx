@@ -223,7 +223,7 @@ export default function Home() {
   // Animated counters for hero stats
   const counter1 = useAnimatedCounter(12);
   const counter2 = useAnimatedCounter(250);
-  const counter3 = useAnimatedCounter(17);
+  const counter3 = useAnimatedCounter(8);
 
   // Check API health on mount
   useEffect(() => {
@@ -294,31 +294,15 @@ export default function Home() {
     abortRef.current = abortController;
 
     try {
-      // Use SSE streaming for real-time progress
-      const streamResult = await api.streamPrediction(
-        {
-          query,
-          ticker,
-          include_technicals: true,
-          include_sentiment: true,
-          include_news: true,
-        },
-        (event: SSEEvent) => {
-          setSseEvents((prev) => [...prev, event]);
+      const result = await api.createPrediction({
+        query,
+        ticker,
+        include_technicals: true,
+        include_sentiment: true,
+        include_news: true,
+      });
 
-          // Check for errors in the SSE stream
-          if (event.event === "error") {
-            setError((event.data as { message?: string }).message || "Prediction failed");
-          }
-        },
-        abortController.signal,
-      );
-
-      // The SSE done event now sends the full PredictionResponse,
-      // so no second API call is needed
-      if (streamResult) {
-        setPrediction(streamResult);
-      }
+      setPrediction(result);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError(
@@ -465,16 +449,16 @@ export default function Home() {
           {/* Pill badge */}
           <div className="pill-badge mb-6 mx-auto w-fit">
             <Zap className="w-3 h-3" />
-            The Clairvoyant Index
+            The Clairvoyant Index — AI Stock Prediction Analysis
           </div>
 
-          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-4">
-            Stock Predictions with{" "}
-            <span className="gradient-text-vibrant">AI Analysis</span>
+          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-4 whitespace-nowrap">
+            Market Intelligence, <span className="gradient-text-vibrant">AI Engineered</span>
           </h2>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-10">
-            Probability-based forecasts backed by real-time data from 12+ sources,
-            streamed live with production-grade guardrails and transparent reasoning.
+            8 algorithms. 2,000 Monte Carlo simulations. Bayesian inference, fat-tail modeling,
+            and multi-timeframe trend analysis — fused into one calibrated probability,
+            powered by the Clarividex engine.
           </p>
 
           {/* Animated stat counters */}
@@ -488,15 +472,15 @@ export default function Home() {
               <div className="text-sm text-slate-400 mt-1">Data Points</div>
             </div>
             <div ref={counter3.ref} className="glass-card-dark p-4 text-center">
-              <div className="text-3xl font-bold text-white">{counter3.count}/17</div>
-              <div className="text-sm text-slate-400 mt-1">Eval Pass Rate</div>
+              <div className="text-3xl font-bold text-white">{counter3.count}</div>
+              <div className="text-sm text-slate-400 mt-1">Prediction Algorithms</div>
             </div>
             <div className="glass-card-dark p-4 text-center">
               <div className="text-3xl font-bold text-emerald-400 flex items-center justify-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live
+                2,000
               </div>
-              <div className="text-sm text-slate-400 mt-1">SSE Streaming</div>
+              <div className="text-sm text-slate-400 mt-1">Monte Carlo Simulations</div>
             </div>
           </div>
         </div>
@@ -660,7 +644,7 @@ export default function Home() {
               </h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
-                  { icon: Zap, label: "SSE Streaming", desc: "Real-time prediction pipeline", featured: true },
+                  { icon: Zap, label: "8-Model Ensemble", desc: "Monte Carlo, Bayesian, trend analysis & more", featured: true },
                   { icon: Shield, label: "Output Guardrails", desc: "PII redaction, advice detection", featured: false },
                   { icon: MessageSquare, label: "RAG Chatbot", desc: "Doc-grounded follow-up Q&A", featured: false },
                   { icon: Layers, label: "Prompt Versioning", desc: "YAML-based, A/B testable", featured: false },

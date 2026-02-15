@@ -307,7 +307,7 @@ class ScenarioAnalyzer:
     ) -> ScenarioImpact:
         """Analyze a custom user-defined scenario using AI."""
         # For custom scenarios, provide a generic response
-        # In production, this would call Claude API for analysis
+        # In production, this would call Gemini API for analysis
         return ScenarioImpact(
             scenario=scenario,
             scenario_description=f"Custom scenario: {scenario}",

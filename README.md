@@ -23,9 +23,10 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python" alt="Python">
-  <img src="https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js" alt="Next.js">
+  <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Claude_API-Anthropic-orange?style=flat-square" alt="Claude">
+  <img src="https://img.shields.io/badge/Gemini_API-Google-4285F4?style=flat-square&logo=google" alt="Gemini">
+  <img src="https://img.shields.io/badge/AWS-Lambda%20%2B%20CloudFront-FF9900?style=flat-square&logo=amazonaws" alt="AWS">
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
 </p>
 
@@ -153,7 +154,7 @@
                                       │
                                       ▼
      ┌──────────────────────────────────────────────────────────────────┐
-     │                      AI REASONING (Claude)                        │
+     │                     AI REASONING (Gemini)                          │
      │                                                                   │
      │  Synthesizes all data into natural language explanation          │
      │  with bullish/bearish factors and actionable insights            │
@@ -344,25 +345,33 @@ For in-depth technical documentation, see the `/docs` folder:
 ### Frontend
 | Technology | Purpose |
 |------------|---------|
-| **Next.js 14** | React framework with App Router |
+| **Next.js 16** | React 19 framework with App Router |
 | **TypeScript** | Type-safe development |
 | **Tailwind CSS** | Utility-first responsive styling |
 | **Recharts** | Data visualization |
 | **Lucide React** | Icon library |
-| **Mobile-First Design** | Responsive from 320px to 1024px+ |
+| **S3 + CloudFront** | Static hosting (exported SPA) |
 
 ### Backend
 | Technology | Purpose |
 |------------|---------|
 | **FastAPI** | High-performance Python API |
-| **Claude API** | AI reasoning engine (Anthropic) |
+| **Gemini API** | AI reasoning engine (Google) |
 | **Pandas/NumPy** | Data processing & calculations |
 | **yfinance** | Market data retrieval |
-| **SQLite/PostgreSQL** | Data persistence |
+| **AWS Lambda** | Serverless deployment via Docker |
 
-### AI Models (Fallback Chain)
+### AI Models
 ```
-Claude API (Primary) → Ollama Local (Fallback) → Rule-Based Engine (Last Resort)
+Gemini 2.0 Flash (Primary) → Rule-Based Engine (Fallback)
+```
+
+### Infrastructure
+```
+Frontend:  S3 (private) → CloudFront (OAC, PriceClass_100)
+Backend:   ECR → Lambda (Function URL, public HTTPS)
+IaC:       Terraform (modules: ecr, lambda, frontend, secrets, monitoring, warmup)
+CI/CD:     GitHub Actions (test on PR, deploy on push to main)
 ```
 
 ---
@@ -372,9 +381,9 @@ Claude API (Primary) → Ollama Local (Fallback) → Rule-Based Engine (Last Res
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- Anthropic API key ([get one here](https://console.anthropic.com/))
+- Google Gemini API key ([get one here](https://aistudio.google.com/apikey))
 
-### Quick Start
+### Quick Start (Local Development)
 
 ```bash
 # 1. Clone the repository
@@ -383,7 +392,7 @@ cd Clarividex
 
 # 2. Set up environment variables
 cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
+# Edit .env and add your GEMINI_API_KEY
 
 # 3. Install & start backend
 cd backend
@@ -408,6 +417,21 @@ npm run dev
 docker-compose up --build
 ```
 
+### Production Deployment (AWS)
+
+```bash
+# 1. Configure terraform/terraform.tfvars with your credentials (see .env.example)
+
+# 2. Deploy infrastructure
+cd terraform
+terraform init && terraform apply
+
+# 3. Build & push backend Docker image (see .github/workflows/deploy.yml)
+
+# 4. Deploy frontend to S3 + CloudFront
+./scripts/deploy-frontend.sh
+```
+
 ---
 
 ## API Documentation
@@ -421,13 +445,15 @@ docker-compose up --build
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/v1/predict` | POST | Generate full prediction |
-| `/api/v1/predict/stream` | POST | Stream prediction progress via SSE |
+| `/api/v1/health` | GET | Health check with API status |
 | `/api/v1/stock/{ticker}/quote` | GET | Real-time stock quote |
 | `/api/v1/stock/{ticker}/technicals` | GET | Technical indicators |
-| `/api/v1/scenario/{ticker}` | GET | Scenario analysis |
-| `/api/v1/herd-warning/{ticker}` | GET | Herd sentiment warning |
-| `/api/v1/prompts` | GET | List prompt templates |
-| `/api/v1/eval/run` | GET | Run evaluation suite |
+| `/api/v1/stock/{ticker}/news` | GET | News articles with sentiment |
+| `/api/v1/stock/{ticker}/social` | GET | Social media sentiment |
+| `/api/v1/analyze-query` | POST | Query quality analysis |
+| `/api/v1/validate-ticker` | GET | Ticker extraction & validation |
+| `/api/v1/chat` | POST | AI chat about predictions |
+| `/api/v1/popular-tickers` | GET | List of 160+ supported tickers |
 
 ---
 
@@ -435,12 +461,12 @@ docker-compose up --build
 
 ```
 clarividex/
-├── frontend/                 # Next.js React application (mobile-responsive)
+├── frontend/                 # Next.js 16 React application (static export)
 │   ├── src/
 │   │   ├── app/             # Next.js App Router pages
 │   │   ├── components/      # React components (responsive 320px+)
-│   │   └── lib/             # Utilities and API client
-│   └── public/              # Static assets
+│   │   └── lib/             # API client (NEXT_PUBLIC_API_URL baked at build)
+│   └── public/              # Static assets (favicons, manifest)
 │
 ├── backend/                  # FastAPI Python backend
 │   ├── app/
@@ -448,23 +474,37 @@ clarividex/
 │   │   ├── models/          # Pydantic schemas
 │   │   ├── services/        # Business logic
 │   │   │   ├── prediction_engine.py
-│   │   │   ├── data_aggregator.py
+│   │   │   ├── market_data.py
 │   │   │   ├── technical_analysis.py
-│   │   │   ├── sentiment_service.py
-│   │   │   └── stream_service.py   # V2: SSE streaming
-│   │   ├── prompts/         # V2: YAML prompt templates
-│   │   ├── guardrails/      # V2: Output guardrails
-│   │   ├── rag/             # V2: RAG pipeline (ChromaDB)
-│   │   ├── evals/           # V2: Evaluation suite
-│   │   └── utils/           # Helpers
-│   └── data/                # PostgreSQL (via Docker)
+│   │   │   ├── news_service.py
+│   │   │   └── social_service.py
+│   │   ├── middleware/      # Rate limiting
+│   │   ├── rag/             # RAG pipeline (ChromaDB)
+│   │   └── evals/           # Evaluation suite
+│   └── lambda_handler.py    # AWS Lambda entry point (Mangum)
 │
-├── docs/                     # Technical documentation
-│   ├── PREDICTION_ENGINE.md
-│   ├── METHODOLOGY.md
-│   └── TECHNICAL_INDICATORS.md
+├── terraform/                # Infrastructure as Code
+│   ├── modules/
+│   │   ├── frontend/        # S3 + CloudFront + OAC
+│   │   ├── lambda/          # Lambda + Function URL + IAM
+│   │   ├── ecr/             # Container registry
+│   │   ├── secrets/         # SSM Parameter Store
+│   │   ├── monitoring/      # CloudWatch alarms + SNS
+│   │   └── warmup/          # EventBridge keep-warm
+│   └── main.tf
 │
-└── docker-compose.yml        # Container orchestration
+├── .github/workflows/        # CI/CD pipelines
+│   ├── ci.yml               # PR validation (lint + build + test)
+│   ├── deploy.yml           # Backend deploy (ECR + Lambda)
+│   └── deploy-frontend.yml  # Frontend deploy (S3 + CloudFront)
+│
+├── scripts/
+│   └── deploy-frontend.sh   # Manual frontend deployment
+│
+├── docker/                   # Docker configs
+│   └── Dockerfile.lambda    # Lambda container image
+│
+└── docs/                     # Technical documentation
 ```
 
 ---

@@ -2,12 +2,7 @@
  * API client for Future Prediction AI backend.
  */
 
-// Use relative URLs in the browser so requests go through the Next.js rewrite
-// proxy (works from any device on the network). Server-side uses the explicit URL.
-const API_BASE_URL =
-  typeof window !== "undefined"
-    ? ""
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 export interface PredictionRequest {
   query: string;

@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 import structlog
 
 from backend.app.config import settings
@@ -1282,48 +1282,6 @@ async def analyze_query(request: AnalyzeQueryRequest):
         "message": result.message,
         "cleaned_query": result.cleaned_query,
     }
-
-
-# =============================================================================
-# SSE Streaming Endpoint
-# =============================================================================
-
-
-@router.post("/predict/stream", tags=["Predictions"])
-async def stream_prediction(request: PredictionRequest):
-    """
-    Stream a prediction via Server-Sent Events.
-
-    Emits events as each stage completes: data_fetch, technical_analysis,
-    sentiment_analysis, social_analysis, market_conditions, ai_reasoning,
-    probability_calculation, done, error.
-
-    Note: SSE is not supported on AWS Lambda (30s timeout, no persistent connections).
-    Use /predict instead when running on Lambda.
-    """
-    import os
-
-    # API Gateway has 30s timeout, SSE doesn't work well on Lambda
-    if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "streaming_not_supported",
-                "detail": "SSE streaming is not available in the serverless environment. Use /api/v1/predict instead.",
-            },
-        )
-
-    from backend.app.services.stream_service import prediction_stream_service
-
-    return StreamingResponse(
-        prediction_stream_service.stream_prediction(request),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
 
 
 # =============================================================================

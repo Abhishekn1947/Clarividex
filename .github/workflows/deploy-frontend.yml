@@ -1,0 +1,116 @@
+# =============================================================================
+# Clarividex - Frontend Deploy Pipeline
+# Push to main (frontend changes) → Build static export → S3 → CloudFront
+# =============================================================================
+
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  S3_BUCKET: clarividex-frontend-prod
+  CLOUDFRONT_DISTRIBUTION_ID: E3PQRUEEMVK3T6
+
+jobs:
+  deploy:
+    name: Build & Deploy Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # -----------------------------------------------------------------
+      # 1. Checkout code
+      # -----------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------
+      # 2. Setup Node.js
+      # -----------------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # -----------------------------------------------------------------
+      # 3. Install dependencies
+      # -----------------------------------------------------------------
+      - name: Install dependencies
+        run: npm ci
+
+      # -----------------------------------------------------------------
+      # 4. Build static export
+      # -----------------------------------------------------------------
+      - name: Build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.LAMBDA_FUNCTION_URL }}
+        run: npm run build
+
+      # -----------------------------------------------------------------
+      # 5. Configure AWS credentials
+      # -----------------------------------------------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # -----------------------------------------------------------------
+      # 6. Sync to S3 (two-pass: HTML no-cache, static immutable)
+      # -----------------------------------------------------------------
+      - name: Upload HTML (no-cache)
+        run: |
+          aws s3 sync out/ s3://$S3_BUCKET \
+            --exclude "*" \
+            --include "*.html" \
+            --cache-control "public,max-age=0,must-revalidate" \
+            --delete
+
+      - name: Upload static assets (immutable)
+        run: |
+          aws s3 sync out/ s3://$S3_BUCKET \
+            --exclude "*.html" \
+            --cache-control "public,max-age=31536000,immutable" \
+            --delete
+
+      # -----------------------------------------------------------------
+      # 7. Invalidate CloudFront cache
+      # -----------------------------------------------------------------
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
+            --paths "/*"
+
+      # -----------------------------------------------------------------
+      # 8. Verify deployment
+      # -----------------------------------------------------------------
+      - name: Verify
+        run: |
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://dy9y276gfap4k.cloudfront.net/" \
+            --max-time 30)
+
+          echo "CloudFront response: HTTP ${HTTP_CODE}"
+
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::warning::CloudFront returned HTTP ${HTTP_CODE} (may still be propagating)"
+          else
+            echo "Frontend deployment verified!"
+          fi
