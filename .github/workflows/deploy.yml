@@ -59,6 +59,8 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build \
+            --provenance=false \
+            --platform linux/amd64 \
             -f docker/Dockerfile.lambda \
             -t $ECR_REGISTRY/$APP_NAME:$IMAGE_TAG \
             -t $ECR_REGISTRY/$APP_NAME:latest \
