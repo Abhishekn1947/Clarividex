@@ -273,9 +273,11 @@ function detectCrossMarket(
   if (market === "IN") {
     const usTickerPattern =
       /\b(AAPL|TSLA|NVDA|MSFT|AMZN|GOOG|GOOGL|META|AMD|NFLX|SPY|QQQ|DIS|BA|JPM|GS|INTC|CRM|ORCL|PYPL|UBER|ABNB|COIN)\b/;
+    const usCompanyNames =
+      /\b(tesla|apple|nvidia|microsoft|amazon|google|alphabet|meta|facebook|netflix|disney|boeing|intel|salesforce|oracle|paypal|uber|airbnb|coinbase|amd)\b/i;
     const usTerms = /\b(s&p\s*500|nasdaq|dow\s*jones|nyse|wall\s*street)\b/i;
     const hasDollarPrice = /\$\d/.test(query);
-    if (usTickerPattern.test(query) || usTerms.test(query) || hasDollarPrice) {
+    if (usTickerPattern.test(query) || usCompanyNames.test(query) || usTerms.test(query) || hasDollarPrice) {
       return {
         targetMarket: "US",
         message:
@@ -555,7 +557,7 @@ export default function Home() {
                   )}
                 />
                 <button
-                  onClick={() => { setMarket("US"); setPrediction(null); setError(null); }}
+                  onClick={() => { setMarket("US"); setPrediction(null); setError(null); setActiveQuery(""); setCrossMarketSuggestion(null); }}
                   className={cn(
                     "relative z-10 flex items-center justify-center gap-1.5 w-1/2 py-1.5 rounded-full text-xs font-semibold transition-colors duration-300",
                     market === "US" ? "text-slate-800" : "text-slate-400 hover:text-slate-600"
@@ -565,7 +567,7 @@ export default function Home() {
                   <span>USA</span>
                 </button>
                 <button
-                  onClick={() => { setMarket("IN"); setPrediction(null); setError(null); }}
+                  onClick={() => { setMarket("IN"); setPrediction(null); setError(null); setActiveQuery(""); setCrossMarketSuggestion(null); }}
                   className={cn(
                     "relative z-10 flex items-center justify-center gap-1.5 w-1/2 py-1.5 rounded-full text-xs font-semibold transition-colors duration-300",
                     market === "IN" ? "text-slate-800" : "text-slate-400 hover:text-slate-600"

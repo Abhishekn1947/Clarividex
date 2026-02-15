@@ -56,6 +56,11 @@ export function PredictionForm({ onSubmit, isLoading, isAnalyzing = false, exter
     ? "Include an NSE ticker (RELIANCE, TCS) or company name for best results"
     : "Include a stock ticker (AAPL, TSLA) or company name for best results";
 
+  // Clear search box when market changes
+  useEffect(() => {
+    setQuery("");
+  }, [market]);
+
   // Sync search box when parent sets a new query (e.g. from suggestion click)
   useEffect(() => {
     if (externalQuery !== undefined && externalQuery !== query) {
