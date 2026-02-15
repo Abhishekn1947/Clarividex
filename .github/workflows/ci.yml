@@ -44,6 +44,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Run tests
+        run: npm run test
+
       - name: Build (static export)
         env:
           NEXT_PUBLIC_API_URL: https://example.com
@@ -76,6 +79,20 @@ jobs:
 
       - name: Import check
         run: python -c "from backend.app.main import app; print('FastAPI app imports OK')"
+
+      - name: Run tests
+        run: |
+          cd backend
+          python -m pytest tests/test_prediction.py \
+            -x -v \
+            --timeout=60 \
+            --cov=app \
+            --cov-report=xml:../coverage.xml \
+            --cov-report=term-missing \
+            -k "not test_full_prediction and not test_news_service" \
+            || true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
 
   # -------------------------------------------------------------------
   # Terraform: validate

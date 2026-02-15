@@ -51,14 +51,7 @@ structlog==24.4.0
 # Google Trends
 pytrends==4.9.2
 
-# Development & Testing
-pytest==8.3.3
-pytest-asyncio==0.24.0
-pytest-cov==5.0.0
-
-# Type checking & Linting
-mypy==1.11.2
-ruff==0.6.8
+# Development & Testing — see requirements-dev.txt for test/lint deps
 
 # FRED Economic Data
 fredapi==0.5.2

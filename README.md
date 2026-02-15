@@ -23,13 +23,15 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Abhishekn1947/Clarividex/stargazers"><img src="https://img.shields.io/github/stars/Abhishekn1947/Clarividex?style=flat-square&color=gold" alt="Stars"></a>
+  <a href="https://github.com/Abhishekn1947/Clarividex/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Abhishekn1947/Clarividex/ci.yml?style=flat-square&label=CI" alt="CI"></a>
   <img src="https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python" alt="Python">
   <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Gemini_API-Google-4285F4?style=flat-square&logo=google" alt="Gemini">
   <img src="https://img.shields.io/badge/Markets-US%20%2B%20India-orange?style=flat-square" alt="Markets">
   <img src="https://img.shields.io/badge/AWS-Lambda%20%2B%20CloudFront-FF9900?style=flat-square&logo=amazonaws" alt="AWS">
-  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
 </p>
 
 ---

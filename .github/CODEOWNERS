@@ -1,0 +1,21 @@
+# =============================================================================
+# Clarividex — Code Owners
+# These owners will be requested for review on PRs touching their areas.
+# =============================================================================
+
+# Default owner — all files
+* @Abhishekn1947
+
+# Backend
+/backend/ @Abhishekn1947
+
+# Frontend
+/frontend/ @Abhishekn1947
+
+# Infrastructure
+/terraform/ @Abhishekn1947
+/.github/workflows/ @Abhishekn1947
+
+# Documentation
+/docs/ @Abhishekn1947
+*.md @Abhishekn1947
