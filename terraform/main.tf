@@ -58,7 +58,7 @@ module "lambda" {
   environment    = var.environment
   ecr_repo_url   = module.ecr.repository_url
   ecr_repo_arn   = module.ecr.repository_arn
-  frontend_url   = module.frontend.cloudfront_url
+  frontend_url   = var.frontend_url
   gemini_api_key_ssm_arn = module.secrets.gemini_api_key_arn
   app_secret_key_ssm_arn = module.secrets.app_secret_key_arn
 
@@ -86,9 +86,10 @@ module "monitoring" {
 # Frontend - S3 + CloudFront Static Hosting
 # -----------------------------------------------------------------------------
 module "frontend" {
-  source      = "./modules/frontend"
-  app_name    = var.app_name
-  environment = var.environment
+  source              = "./modules/frontend"
+  app_name            = var.app_name
+  environment         = var.environment
+  lambda_function_url = module.lambda.function_url
 }
 
 # -----------------------------------------------------------------------------

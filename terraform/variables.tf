@@ -72,6 +72,15 @@ variable "gemini_model" {
 }
 
 # -----------------------------------------------------------------------------
+# Frontend
+# -----------------------------------------------------------------------------
+variable "frontend_url" {
+  description = "Frontend CloudFront URL for CORS (optional, same-origin when proxied)"
+  type        = string
+  default     = ""
+}
+
+# -----------------------------------------------------------------------------
 # Monitoring
 # -----------------------------------------------------------------------------
 variable "alarm_email" {

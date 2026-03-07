@@ -57,7 +57,7 @@ jobs:
       # -----------------------------------------------------------------
       - name: Build
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.LAMBDA_FUNCTION_URL }}
+          NEXT_PUBLIC_API_URL: ""
         run: npm run build
 
       # -----------------------------------------------------------------

@@ -77,13 +77,26 @@ resource "aws_cloudfront_function" "spa_rewrite" {
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
-  price_class         = "PriceClass_100"
+  price_class         = "PriceClass_200"
   comment             = "${var.app_name} frontend (${var.environment})"
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id                = "s3-frontend"
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  origin {
+    domain_name = replace(replace(var.lambda_function_url, "https://", ""), "/", "")
+    origin_id   = "lambda-api"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+      origin_read_timeout    = 60
+    }
   }
 
   # Default behavior: HTML and other files (1-day cache)
@@ -109,6 +122,28 @@ resource "aws_cloudfront_distribution" "frontend" {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.spa_rewrite.arn
     }
+  }
+
+  # /api/* cache behavior: proxy to Lambda (no caching)
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "lambda-api"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    forwarded_values {
+      query_string = true
+      headers      = ["Accept", "Authorization", "Content-Type", "Origin", "Referer"]
+      cookies {
+        forward = "all"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 0
+    max_ttl     = 0
   }
 
   # _next/static/* cache behavior: 1-year TTL (immutable hashed assets)
